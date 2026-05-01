@@ -1,6 +1,6 @@
 export const stockData = [
   {
-    id: 1,
+    id: "1",
     name: "Paracetamol",
     category: "Pain Relief",
     batch: "N/A",
@@ -11,7 +11,7 @@ export const stockData = [
     minStock: 20,
   },
   {
-    id: 2,
+    id: "2",
     name: "Doliprane",
     category: "Pain Relief",
     batch: "N/A",

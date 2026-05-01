@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { suppliersData } from "@/data/suppliers";
+import { suppliersData as initialData } from "@/data/suppliers";
 
 import {
   RiEditLine,
@@ -12,7 +12,17 @@ import {
   RiMapPinLine,
 } from "react-icons/ri";
 
-const emptyForm = {
+type Supplier = {
+  id: string;
+  name: string;
+  contact: string;
+  phone: string;
+  email: string;
+  location: string;
+};
+
+const emptyForm: Supplier = {
+  id: "",
   name: "",
   contact: "",
   phone: "",
@@ -21,11 +31,11 @@ const emptyForm = {
 };
 
 export default function SuppliersPage() {
-  const [suppliers, setSuppliers] = useState(suppliersData);
+  const [suppliers, setSuppliers] = useState<Supplier[]>(initialData);
   const [search, setSearch] = useState("");
   const [open, setOpen] = useState(false);
-  const [selected, setSelected] = useState<any>(null);
-  const [form, setForm] = useState(emptyForm);
+  const [selected, setSelected] = useState<Supplier | null>(null);
+  const [form, setForm] = useState<Supplier>(emptyForm);
 
   // 🔍 FILTER
   const filtered = suppliers.filter((s) =>
@@ -40,35 +50,45 @@ export default function SuppliersPage() {
   };
 
   // ✏️ EDIT
-  const handleEdit = (item: any) => {
+  const handleEdit = (item: Supplier) => {
     setSelected(item);
     setForm(item);
     setOpen(true);
   };
 
   // ❌ DELETE
-  const handleDelete = (id: number) => {
+  const handleDelete = (id: string) => {
     if (!confirm("Delete this supplier?")) return;
-    setSuppliers(suppliers.filter((s) => s.id !== id));
+    setSuppliers((prev) => prev.filter((s) => s.id !== id));
   };
 
   // 💾 SAVE
   const handleSave = () => {
     if (selected) {
-      setSuppliers(
-        suppliers.map((s) =>
+      setSuppliers((prev) =>
+        prev.map((s) =>
           s.id === selected.id ? { ...form, id: selected.id } : s
         )
       );
     } else {
-      setSuppliers([...suppliers, { ...form, id: Date.now() }]);
+      const newSupplier: Supplier = {
+        ...form,
+        id: Date.now().toString(),
+      };
+
+      setSuppliers((prev) => [...prev, newSupplier]);
     }
 
     setOpen(false);
   };
 
-  const handleChange = (e: any) => {
-    setForm({ ...form, [e.target.name]: e.target.value });
+  const handleChange = (
+    e: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    setForm({
+      ...form,
+      [e.target.name]: e.target.value,
+    });
   };
 
   return (
@@ -117,22 +137,22 @@ export default function SuppliersPage() {
                 </h2>
 
                 <div className="flex items-center gap-2">
-                  <RiUser3Line className="opacity-70" />
+                  <RiUser3Line />
                   {s.contact}
                 </div>
 
                 <div className="flex items-center gap-2">
-                  <RiPhoneLine className="opacity-70" />
+                  <RiPhoneLine />
                   {s.phone}
                 </div>
 
                 <div className="flex items-center gap-2">
-                  <RiMailLine className="opacity-70" />
+                  <RiMailLine />
                   {s.email}
                 </div>
 
                 <div className="flex items-center gap-2">
-                  <RiMapPinLine className="opacity-70" />
+                  <RiMapPinLine />
                   {s.location}
                 </div>
 
@@ -172,7 +192,7 @@ export default function SuppliersPage() {
             onClick={() => setOpen(false)}
           />
 
-          <div className="relative bg-base-100 w-full max-w-md p-6 rounded-xl shadow-xl space-y-3 z-[10000]">
+          <div className="relative bg-base-100 w-full max-w-md p-6 rounded-xl space-y-3 z-10000">
 
             <h2 className="text-lg font-bold">
               {selected ? "Edit Supplier" : "Add Supplier"}

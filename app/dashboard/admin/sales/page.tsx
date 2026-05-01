@@ -3,16 +3,22 @@
 import { useState } from "react";
 import { sales } from "@/data/sales";
 
+type Sale = {
+  id: string;
+  date: string;
+  items: string;
+  total: string;
+};
+
 const SalesHistoryPage = () => {
   const [search, setSearch] = useState("");
 
-  // filter logic (search by id or anything)
-  const filteredSales = sales.filter((sale) =>
-    sale.id.toLowerCase().includes(search.toLowerCase())
-  );
+  const filteredSales = sales.filter((sale: Sale) =>
+  sale.id.toLowerCase().includes(search.toLowerCase())
+);
 
-  const handleDownload = (sale: any) => {
-  const content = `
+  const handleDownload = (sale: Sale) => {
+    const content = `
 Pharmac+ Receipt
 
 Sale ID: ${sale.id}
@@ -23,21 +29,21 @@ Total: ${sale.total}
 Thank you for using Pharmac+
 `;
 
-  const blob = new Blob([content], { type: "text/plain" });
-  const url = URL.createObjectURL(blob);
+    const blob = new Blob([content], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
 
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `${sale.id}.txt`;
-  a.click();
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${sale.id}.txt`;
+    a.click();
 
-  URL.revokeObjectURL(url);
-};
+    URL.revokeObjectURL(url);
+  };
 
   return (
     <div className="space-y-4">
 
-      {/* 📊 TOP SUMMARY */}
+      {/* SUMMARY */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
 
         <div className="card bg-base-100 shadow border">
@@ -50,18 +56,18 @@ Thank you for using Pharmac+
         <div className="card bg-base-100 shadow border">
           <div className="card-body">
             <h2 className="text-sm opacity-70">Total Revenue</h2>
-            <p className="text-2xl font-bold">TK12400.00</p>
+            <p className="text-2xl font-bold">TK 12400.00</p>
           </div>
         </div>
 
       </div>
 
-      {/* 🔍 SEARCH + FILTER */}
+      {/* SEARCH */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
 
         <input
           type="text"
-          placeholder="Search by sale ID or medicine..."
+          placeholder="Search by sale ID..."
           className="input input-bordered w-full"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
@@ -69,20 +75,17 @@ Thank you for using Pharmac+
 
         <input
           type="date"
-          placeholder="jj/mm/aaaa"
           className="input input-bordered w-full"
         />
 
       </div>
 
-      {/* 📋 TABLE */}
+      {/* TABLE */}
       <div className="card bg-base-100 shadow border overflow-x-auto">
-
         <div className="card-body">
 
           <table className="table w-full">
 
-            {/* HEAD */}
             <thead>
               <tr>
                 <th>Sale ID</th>
@@ -93,44 +96,40 @@ Thank you for using Pharmac+
               </tr>
             </thead>
 
-            {/* BODY */}
             <tbody>
-
-              {filteredSales.map((sale, i) => (
-                <tr key={i}>
+              {filteredSales.map((sale) => (
+                <tr key={sale.id}>
 
                   <td className="font-mono">{sale.id}</td>
                   <td>{sale.date}</td>
                   <td>{sale.items}</td>
-                  <td className="font-bold">{sale.total}</td>
+                  <td className="font-bold">TK {sale.total}</td>
 
-                 <td className="flex gap-2">
+                  <td className="flex gap-2">
 
-  <button
-    className="btn btn-xs btn-outline"
-    onClick={() => alert("Viewing sale " + sale.id)}
-  >
-    View
-  </button>
+                    <button
+                      className="btn btn-xs btn-outline"
+                      onClick={() => alert("Viewing sale " + sale.id)}
+                    >
+                      View
+                    </button>
 
-  <button
-    className="btn btn-xs btn-outline"
-    onClick={() => handleDownload(sale)}
-  >
-    Download
-  </button>
+                    <button
+                      className="btn btn-xs btn-outline"
+                      onClick={() => handleDownload(sale)}
+                    >
+                      Download
+                    </button>
 
-</td>
+                  </td>
 
                 </tr>
               ))}
-
             </tbody>
 
           </table>
 
         </div>
-
       </div>
 
     </div>

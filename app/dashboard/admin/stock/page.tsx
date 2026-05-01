@@ -1,17 +1,30 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { stockData } from "@/data/stock";
+import { stockData as initialStockData } from "@/data/stock";
 
-const emptyForm = {
+type StockItem = {
+  id: string; // keep string
+  name: string;
+  category: string;
+  batch: string;
+  stock: number;
+  expiry: string;
+  price: number;
+  purchasePrice: number;
+  minStock: number;
+};
+
+const emptyForm: StockItem = {
+  id: "",
   name: "",
   category: "",
   batch: "",
-  stock: "",
+  stock: 0,
   expiry: "",
-  price: "",
-  purchasePrice: "",
-  minStock: "",
+  price: 0,
+  purchasePrice: 0,
+  minStock: 20,
 };
 
 const isExpiringSoon = (dateStr: string) => {
@@ -19,18 +32,19 @@ const isExpiringSoon = (dateStr: string) => {
   const today = new Date();
   const exp = new Date(dateStr);
   const diffDays = (exp.getTime() - today.getTime()) / (1000 * 60 * 60 * 24);
-  return diffDays <= 30; // within 30 days
+  return diffDays <= 30;
 };
 
 const StockPage = () => {
   const [open, setOpen] = useState(false);
-  const [selected, setSelected] = useState<any>(null);
-  const [form, setForm] = useState<any>(emptyForm);
+  const [selected, setSelected] = useState<StockItem | null>(null);
+  const [form, setForm] = useState<StockItem>(emptyForm);
 
-  // 🔍 search + filters
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<"all" | "low" | "exp">("all");
   const [category, setCategory] = useState("all");
+
+  const [stockData, setStockData] = useState<StockItem[]>(initialStockData);
 
   const handleAdd = () => {
     setSelected(null);
@@ -38,26 +52,41 @@ const StockPage = () => {
     setOpen(true);
   };
 
-  const handleEdit = (item: any) => {
+  const handleEdit = (item: StockItem) => {
     setSelected(item);
     setForm(item);
     setOpen(true);
   };
 
-  const handleChange = (e: any) => {
-    setForm({ ...form, [e.target.name]: e.target.value });
+  const handleChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
+  ) => {
+    setForm({
+      ...form,
+      [e.target.name]:
+        e.target.type === "number"
+          ? Number(e.target.value)
+          : e.target.value,
+    });
   };
 
-  // ESC CLOSE
-  useEffect(() => {
-    const handleEsc = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpen(false);
-    };
-    window.addEventListener("keydown", handleEsc);
-    return () => window.removeEventListener("keydown", handleEsc);
-  }, []);
+  const handleSave = () => {
+    if (selected) {
+      setStockData((prev) =>
+        prev.map((item) =>
+          item.id === selected.id ? { ...form } : item
+        )
+      );
+    } else {
+      setStockData((prev) => [
+        { ...form, id: Date.now().toString() },
+        ...prev,
+      ]);
+    }
 
-  // 🧠 FILTERED DATA
+    setOpen(false);
+  };
+
   const filteredData = useMemo(() => {
     return stockData.filter((item) => {
       const q = search.toLowerCase();
@@ -65,7 +94,7 @@ const StockPage = () => {
       const matchesSearch =
         item.name.toLowerCase().includes(q) ||
         item.category.toLowerCase().includes(q) ||
-        (item.batch || "").toLowerCase().includes(q);
+        item.batch.toLowerCase().includes(q);
 
       const matchesCategory =
         category === "all" ? true : item.category === category;
@@ -79,52 +108,29 @@ const StockPage = () => {
           ? isExpiringSoon(item.expiry)
           : true;
 
-      return matchesSearch && matchesFilter && matchesCategory;
+      return matchesSearch && matchesCategory && matchesFilter;
     });
-  }, [search, filter, category]);
+  }, [search, filter, category, stockData]);
 
   return (
     <div className="space-y-4">
 
       {/* HEADER */}
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-
+      <div className="flex justify-between items-center">
         <h1 className="text-xl font-bold">Stock Management</h1>
 
-        {/* RIGHT SIDE: SEARCH + FILTERS + ADD */}
-        <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
-
-          {/* 🔍 SEARCH */}
-          <div className="flex items-center gap-2 bg-base-200 px-2 rounded-lg">
-            <input
-              type="text"
-              placeholder="Search medicine..."
-              className="input input-ghost w-48 sm:w-64 text-sm"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-          </div>
-
-
-          {/* 📂 CATEGORY DROPDOWN */}
-          <select
-            className="select select-bordered select-sm"
-            value={category}
-            onChange={(e) => setCategory(e.target.value)}
-          >
-            <option value="all">All Categories</option>
-            <option value="Pain Relief">Pain Relief</option>
-            <option value="Antibiotic">Antibiotic</option>
-            <option value="Vitamin">Vitamin</option>
-          </select>
-
-          {/* ➕ ADD BUTTON */}
-          <button className="btn btn-primary" onClick={handleAdd}>
-            + Add
-          </button>
-
-        </div>
+        <button className="btn btn-primary" onClick={handleAdd}>
+          + Add
+        </button>
       </div>
+
+      {/* SEARCH */}
+      <input
+        className="input input-bordered w-full"
+        placeholder="Search medicine..."
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+      />
 
       {/* TABLE */}
       <div className="card bg-base-100 shadow border overflow-x-auto">
@@ -144,66 +150,36 @@ const StockPage = () => {
             </thead>
 
             <tbody>
-              {filteredData.length > 0 ? (
-                filteredData.map((item) => (
-                  <tr key={item.id} className="hover">
+              {filteredData.map((item) => (
+                <tr key={item.id}>
+                  <td>{item.name}</td>
+                  <td>{item.category}</td>
+                  <td>{item.batch}</td>
+                  <td>{item.stock}</td>
+                  <td>TK {item.price}</td>
+                  <td>{item.expiry}</td>
 
-                    <td className="font-semibold">{item.name}</td>
-
-                    <td>
-                      <span className="badge badge-outline">
-                        {item.category}
-                      </span>
-                    </td>
-
-                    <td>{item.batch}</td>
-
-                    <td>
-                      <span
-                        className={`badge ${
-                          item.stock < (item.minStock ?? 20)
-                            ? "badge-error"
-                            : "badge-success"
-                        }`}
-                      >
-                        {item.stock}
-                      </span>
-                    </td>
-
-                    <td>TK {item.price}</td>
-
-                    <td
-                      className={`text-xs ${
-                        isExpiringSoon(item.expiry)
-                          ? "text-red-500"
-                          : "opacity-70"
-                      }`}
+                  <td className="flex gap-2">
+                    <button
+                      className="btn btn-xs btn-outline"
+                      onClick={() => handleEdit(item)}
                     >
-                      {item.expiry}
-                    </td>
+                      Edit
+                    </button>
 
-                    <td className="flex gap-2">
-                      <button
-                        className="btn btn-xs btn-outline"
-                        onClick={() => handleEdit(item)}
-                      >
-                        Edit
-                      </button>
-
-                      <button className="btn btn-xs btn-error">
-                        Delete
-                      </button>
-                    </td>
-
-                  </tr>
-                ))
-              ) : (
-                <tr>
-                  <td colSpan={7} className="text-center text-sm opacity-60">
-                    No medicines found
+                    <button
+                      className="btn btn-xs btn-error"
+                      onClick={() =>
+                        setStockData((prev) =>
+                          prev.filter((i) => i.id !== item.id)
+                        )
+                      }
+                    >
+                      Delete
+                    </button>
                   </td>
                 </tr>
-              )}
+              ))}
             </tbody>
 
           </table>
@@ -211,96 +187,37 @@ const StockPage = () => {
         </div>
       </div>
 
-      {/* MODAL (same as yours, keep z high if needed) */}
+      {/* MODAL */}
       {open && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60">
-          <div className="absolute inset-0" onClick={() => setOpen(false)} />
-
-          <div className="relative bg-base-100 w-full max-w-lg p-6 rounded-xl shadow-xl space-y-3 z-[10000]">
-            <h2 className="text-lg font-bold">
-              {selected ? "Edit Medicine" : "Add Medicine"}
-            </h2>
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center">
+          <div className="bg-base-100 p-6 rounded-xl w-full max-w-lg space-y-3">
 
             <input
               name="name"
               value={form.name}
               onChange={handleChange}
               className="input input-bordered w-full"
-              placeholder="Medicine Name"
+              placeholder="Name"
             />
-
-            <select
-              name="category"
-              value={form.category}
-              onChange={handleChange}
-              className="select select-bordered w-full"
-            >
-              <option value="">Select Category</option>
-              <option>Pain Relief</option>
-              <option>Antibiotic</option>
-              <option>Vitamin</option>
-            </select>
 
             <input
-              name="batch"
-              value={form.batch}
+              name="stock"
+              type="number"
+              value={form.stock}
               onChange={handleChange}
               className="input input-bordered w-full"
-              placeholder="Batch Number"
+              placeholder="Stock"
             />
 
-            <div className="grid grid-cols-2 gap-2">
-              <input
-                name="stock"
-                type="number"
-                value={form.stock}
-                onChange={handleChange}
-                className="input input-bordered w-full"
-                placeholder="Stock"
-              />
-              <input
-                name="expiry"
-                type="date"
-                value={form.expiry}
-                onChange={handleChange}
-                className="input input-bordered w-full"
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-2">
-              <input
-                name="price"
-                value={form.price}
-                onChange={handleChange}
-                className="input input-bordered w-full"
-                placeholder="Unit Price"
-              />
-              <input
-                name="purchasePrice"
-                value={form.purchasePrice}
-                onChange={handleChange}
-                className="input input-bordered w-full"
-                placeholder="Purchase Price"
-              />
-            </div>
-
-            <input
-              name="minStock"
-              value={form.minStock}
-              onChange={handleChange}
-              className="input input-bordered w-full"
-              placeholder="Minimum Stock"
-            />
-
-            <div className="flex gap-2 pt-2">
-              <button className="btn btn-primary flex-1">Save</button>
-              <button
-                className="btn btn-outline flex-1"
-                onClick={() => setOpen(false)}
-              >
+            <div className="flex gap-2">
+              <button className="btn btn-primary flex-1" onClick={handleSave}>
+                Save
+              </button>
+              <button className="btn btn-outline flex-1" onClick={() => setOpen(false)}>
                 Cancel
               </button>
             </div>
+
           </div>
         </div>
       )}

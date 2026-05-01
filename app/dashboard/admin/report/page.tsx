@@ -27,12 +27,12 @@ const ReportsPage = () => {
   const [date, setDate] = useState("2025-09-10");
 
   const {
-    summary,
-    topSelling,
-    alerts,
-    salesTrend,
-    productSales,
-  } = reportData;
+    summary = { revenue: 0, transactions: 0, avg: 0, profit: 0 },
+    topSelling = [],
+    alerts = { lowStock: 0 },
+    salesTrend = [],
+    productSales = [],
+  } = reportData || {};
 
   return (
     <div className="space-y-5">
@@ -60,10 +60,6 @@ const ReportsPage = () => {
         <button className="btn btn-outline btn-sm gap-2">
           <RiFileExcel2Line /> Stock Excel
         </button>
-
-        <button className="btn btn-ghost btn-sm">
-          Detailed Report
-        </button>
       </div>
 
       {/* FILTERS */}
@@ -88,161 +84,113 @@ const ReportsPage = () => {
         </div>
       </div>
 
-      {/* KPI CARDS */}
+      {/* KPI */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
 
         <div className="card bg-base-100 shadow border">
           <div className="card-body">
             <p className="text-xs opacity-60">Total Revenue</p>
-            <h2 className="text-2xl font-bold">
-              TK {summary.revenue}
-            </h2>
+            <h2 className="text-2xl font-bold">TK {summary.revenue}</h2>
           </div>
         </div>
 
         <div className="card bg-base-100 shadow border">
           <div className="card-body">
-            <p className="text-xs opacity-60">Total Transactions</p>
-            <h2 className="text-2xl font-bold">
-              {summary.transactions}
-            </h2>
+            <p className="text-xs opacity-60">Transactions</p>
+            <h2 className="text-2xl font-bold">{summary.transactions}</h2>
           </div>
         </div>
 
         <div className="card bg-base-100 shadow border">
           <div className="card-body">
-            <p className="text-xs opacity-60">Average Transaction</p>
-            <h2 className="text-2xl font-bold">
-              TK {summary.avg}
-            </h2>
+            <p className="text-xs opacity-60">Avg Transaction</p>
+            <h2 className="text-2xl font-bold">TK {summary.avg}</h2>
           </div>
         </div>
 
         <div className="card bg-base-100 shadow border">
           <div className="card-body">
-            <p className="text-xs opacity-60">Net Profit</p>
-            <h2 className="text-2xl font-bold">
-              TK {summary.profit}
-            </h2>
+            <p className="text-xs opacity-60">Profit</p>
+            <h2 className="text-2xl font-bold">TK {summary.profit}</h2>
           </div>
         </div>
-
       </div>
 
-      {/* 🔥 ROW 1 */}
+      {/* ROW 1 */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
 
         {/* TOP SELLING */}
         <div className="card bg-base-100 shadow border">
           <div className="card-body">
-            <h2 className="font-semibold mb-3">
-              Top Selling Medicines
-            </h2>
+            <h2 className="font-semibold mb-3">Top Selling Medicines</h2>
 
-            {topSelling.map((item, i) => (
-              <div
-                key={i}
-                className="flex justify-between py-2 border-b last:border-none"
-              >
+            {topSelling.map((item: any, i: number) => (
+              <div key={i} className="flex justify-between py-2 border-b last:border-none">
                 <div>
                   <p className="font-medium">{item.name}</p>
-                  <p className="text-xs opacity-60">
-                    {item.units} units
-                  </p>
+                  <p className="text-xs opacity-60">{item.units} units</p>
                 </div>
-
-                <p className="font-semibold">
-                  TK {item.total}
-                </p>
+                <p className="font-semibold">TK {item.total}</p>
               </div>
             ))}
           </div>
         </div>
 
-        {/* STOCK ALERT */}
+        {/* ALERTS */}
         <div className="card bg-base-100 shadow border">
           <div className="card-body">
-
             <h2 className="font-semibold mb-3 flex items-center gap-2">
               <RiAlertLine /> Stock Alerts
             </h2>
 
-            <div className="flex justify-between items-center">
+            <div className="flex justify-between">
               <p className="text-sm">Low Stock Items</p>
-
-              <span
-                className={`badge ${
-                  alerts.lowStock > 0
-                    ? "badge-error"
-                    : "badge-success"
-                }`}
-              >
+              <span className={`badge ${alerts.lowStock > 0 ? "badge-error" : "badge-success"}`}>
                 {alerts.lowStock}
               </span>
             </div>
-
           </div>
         </div>
-
       </div>
 
-      {/* 🔥 ROW 2 (GRAPHS) */}
+      {/* ROW 2 */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
 
-        {/* SALES TREND */}
+        {/* BAR */}
         <div className="card bg-base-100 shadow border">
           <div className="card-body">
-            <h2 className="font-semibold mb-4">
-              Sales Trend
-            </h2>
+            <h2 className="font-semibold mb-4">Sales Trend</h2>
 
             <ResponsiveContainer width="100%" height={250}>
               <BarChart data={salesTrend}>
                 <XAxis dataKey="day" />
                 <YAxis />
                 <Tooltip />
-                <Bar dataKey="sales" fill="#3b82f6" />
+                <Bar dataKey="sales" />
               </BarChart>
             </ResponsiveContainer>
           </div>
         </div>
 
-        {/* SALES BY PRODUCT */}
+        {/* PIE */}
         <div className="card bg-base-100 shadow border">
           <div className="card-body">
-            <h2 className="font-semibold mb-4">
-              Sales by Product
-            </h2>
+            <h2 className="font-semibold mb-4">Sales by Product</h2>
 
             <ResponsiveContainer width="100%" height={250}>
               <PieChart>
-                <Pie
-                  data={productSales}
-                  dataKey="value"
-                  nameKey="name"
-                  outerRadius={80}
-                  label
-                >
-                  {productSales.map((_, index) => (
-                    <Cell
-                      key={index}
-                      fill={
-                        ["#3b82f6", "#10b981", "#f59e0b"][
-                          index % 3
-                        ]
-                      }
-                    />
+                <Pie data={productSales} dataKey="value" nameKey="name" outerRadius={80} label>
+                  {productSales.map((_: any, index: number) => (
+                    <Cell key={index} fill={["#3b82f6", "#10b981", "#f59e0b"][index % 3]} />
                   ))}
                 </Pie>
                 <Tooltip />
               </PieChart>
             </ResponsiveContainer>
-
           </div>
         </div>
 
       </div>
-
     </div>
   );
 };

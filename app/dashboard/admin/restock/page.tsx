@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { lowStockData,restockOrders } from "@/data/restock";
 
 import {
   RiErrorWarningLine,
@@ -10,27 +9,55 @@ import {
   RiTruckLine,
 } from "react-icons/ri";
 
+/* TYPES */
+type LowStockItem = {
+  id: string;
+  name: string;
+  stock: number;
+  minStock: number;
+};
+
+type RestockOrder = {
+  id: string;
+  supplier: string;
+  notes: string;
+  date: string;
+  items: number;
+};
+
+/* EMPTY FORM */
 const emptyForm = {
   supplier: "",
   notes: "",
 };
 
 const RestockPage = () => {
-  const [orders, setOrders] = useState(restockOrders);
+  const [orders, setOrders] = useState<RestockOrder[]>([]);
+  const [lowStockData, setLowStockData] = useState<LowStockItem[]>([]);
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState(emptyForm);
+
+  /* FETCH DATA (API STYLE - recommended) */
+  useState(() => {
+    fetch("/api/restock")
+      .then((res) => res.json())
+      .then((data) => {
+        setOrders(data.orders);
+        setLowStockData(data.lowStock);
+      });
+  });
 
   const handleCreate = () => {
     setForm(emptyForm);
     setOpen(true);
   };
 
-  const handleChange = (e: any) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
 
   const handleSave = () => {
-    const newOrder = {
+    const newOrder: RestockOrder = {
       id: Date.now().toString(),
       supplier: form.supplier,
       notes: form.notes,
@@ -57,7 +84,7 @@ const RestockPage = () => {
         </button>
       </div>
 
-      {/* LOW STOCK SECTION */}
+      {/* LOW STOCK */}
       <div className="card bg-base-100 shadow border">
         <div className="card-body">
 
@@ -73,7 +100,7 @@ const RestockPage = () => {
             </div>
           ) : (
             <div className="mt-2 space-y-2 text-sm">
-              {lowStockData.map((item: any) => (
+              {lowStockData.map((item) => (
                 <div
                   key={item.id}
                   className="flex justify-between border p-2 rounded"
@@ -90,7 +117,7 @@ const RestockPage = () => {
         </div>
       </div>
 
-      {/* RESTOCK ORDERS */}
+      {/* ORDERS */}
       <div className="card bg-base-100 shadow border">
         <div className="card-body">
 
@@ -105,16 +132,14 @@ const RestockPage = () => {
             </p>
           ) : (
             <div className="mt-2 space-y-2 text-sm">
-              {orders.map((order: any) => (
+              {orders.map((order) => (
                 <div
                   key={order.id}
                   className="border p-3 rounded flex justify-between"
                 >
                   <div>
                     <p className="font-medium">{order.supplier}</p>
-                    <p className="opacity-60 text-xs">
-                      {order.date}
-                    </p>
+                    <p className="opacity-60 text-xs">{order.date}</p>
                   </div>
 
                   <div className="text-right">
@@ -132,16 +157,11 @@ const RestockPage = () => {
       {open && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
 
-          <div
-            className="absolute inset-0"
-            onClick={() => setOpen(false)}
-          />
+          <div className="absolute inset-0" onClick={() => setOpen(false)} />
 
           <div className="relative bg-base-100 w-full max-w-md p-6 rounded-xl space-y-3">
 
-            <h2 className="text-lg font-bold">
-              Create Restock Order
-            </h2>
+            <h2 className="text-lg font-bold">Create Restock Order</h2>
 
             <input
               name="supplier"
@@ -160,10 +180,7 @@ const RestockPage = () => {
             />
 
             <div className="flex gap-2">
-              <button
-                className="btn btn-primary flex-1"
-                onClick={handleSave}
-              >
+              <button className="btn btn-primary flex-1" onClick={handleSave}>
                 Save
               </button>
 

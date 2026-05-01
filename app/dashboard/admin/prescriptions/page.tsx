@@ -1,8 +1,6 @@
 "use client";
 
-import { useState } from "react";
-import { prescriptionsData } from "@/data/prescriptions";
-
+import { useState, useEffect } from "react";
 import {
   RiFileExcel2Line,
   RiFilePdf2Line,
@@ -10,6 +8,19 @@ import {
   RiDeleteBin6Line,
   RiAddLine,
 } from "react-icons/ri";
+
+type MedicineItem = {
+  name: string;
+  qty: number;
+};
+
+type Prescription = {
+  id: string;
+  patient: string;
+  doctor: string;
+  date: string;
+  medicines: MedicineItem[];
+};
 
 const emptyForm = {
   patient: "",
@@ -19,10 +30,17 @@ const emptyForm = {
 };
 
 const PrescriptionsPage = () => {
-  const [data, setData] = useState(prescriptionsData);
   const [open, setOpen] = useState(false);
-  const [selected, setSelected] = useState<any>(null);
-  const [form, setForm] = useState<any>(emptyForm);
+  const [selected, setSelected] = useState<Prescription | null>(null);
+  const [form, setForm] = useState(emptyForm);
+  const [data, setData] = useState<Prescription[]>([]);
+
+  // ✅ FETCH
+  useEffect(() => {
+    fetch("/api/prescriptions")
+      .then((res) => res.json())
+      .then((data) => setData(data));
+  }, []);
 
   const handleAdd = () => {
     setSelected(null);
@@ -30,48 +48,73 @@ const PrescriptionsPage = () => {
     setOpen(true);
   };
 
-  const handleEdit = (item: any) => {
+  const handleEdit = (item: Prescription) => {
     setSelected(item);
     setForm({
-      ...item,
+      patient: item.patient,
+      doctor: item.doctor,
+      date: item.date,
       medicines: item.medicines
-        .map((m: any) => `${m.name}-${m.qty}`)
+        .map((m) => `${m.name}-${m.qty}`)
         .join(", "),
     });
     setOpen(true);
   };
 
-  const handleDelete = (id: string) => {
-    setData(data.filter((item) => item.id !== id));
+  // ❌ FIXED: delete also updates backend
+  const handleDelete = async (id: string) => {
+    await fetch("/api/prescriptions", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id }),
+    });
+
+    setData((prev) => prev.filter((item) => item.id !== id));
   };
 
-  const handleChange = (e: any) => {
+  const handleChange = (
+    e: React.ChangeEvent<HTMLInputElement>
+  ) => {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
 
-  const handleSave = () => {
-    const parsedMeds = form.medicines.split(",").map((m: string) => {
-      const [name, qty] = m.split("-");
-      return { name: name.trim(), qty: Number(qty) };
-    });
+  // ❌ FIXED: save to API + UI
+  const handleSave = async () => {
+    const parsedMeds: MedicineItem[] = form.medicines
+      .split(",")
+      .map((m) => {
+        const [name, qty] = m.split("-");
+        return {
+          name: name?.trim() || "",
+          qty: Number(qty) || 0,
+        };
+      });
+
+    const payload = {
+      patient: form.patient,
+      doctor: form.doctor,
+      date: form.date,
+      medicines: parsedMeds,
+    };
 
     if (selected) {
-      setData(
-        data.map((item) =>
+      // update UI only (you can add PUT later)
+      setData((prev) =>
+        prev.map((item) =>
           item.id === selected.id
-            ? { ...item, ...form, medicines: parsedMeds }
+            ? { ...item, ...payload }
             : item
         )
       );
     } else {
-      setData([
-        ...data,
-        {
-          id: Date.now().toString(),
-          ...form,
-          medicines: parsedMeds,
-        },
-      ]);
+      const res = await fetch("/api/prescriptions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      const newItem = await res.json();
+      setData((prev) => [...prev, newItem]);
     }
 
     setOpen(false);
@@ -88,7 +131,6 @@ const PrescriptionsPage = () => {
 
       {/* TOOLBAR */}
       <div className="flex flex-wrap justify-between gap-2">
-
         <div className="flex gap-2 flex-wrap">
           <button className="btn btn-success btn-sm flex items-center gap-1">
             <RiFileExcel2Line /> Excel
@@ -96,14 +138,6 @@ const PrescriptionsPage = () => {
 
           <button className="btn btn-error btn-sm flex items-center gap-1">
             <RiFilePdf2Line /> PDF
-          </button>
-
-          <button className="btn btn-outline btn-sm flex items-center gap-1">
-            <RiEdit2Line /> Edit
-          </button>
-
-          <button className="btn btn-outline btn-sm text-red-500 flex items-center gap-1">
-            <RiDeleteBin6Line /> Delete
           </button>
         </div>
 
@@ -139,7 +173,7 @@ const PrescriptionsPage = () => {
                 </p>
 
                 <div className="mt-2 text-sm">
-                  {item.medicines.map((m: any, i: number) => (
+                  {item.medicines?.map((m, i) => (
                     <div key={i}>
                       {m.name} — Qty: {m.qty}
                     </div>
@@ -213,7 +247,7 @@ const PrescriptionsPage = () => {
               value={form.medicines}
               onChange={handleChange}
               className="input input-bordered w-full"
-              placeholder="Paracetamol-1, Aspirine-2"
+              placeholder="Paracetamol-1, Aspirin-2"
             />
 
             <div className="flex gap-2">
