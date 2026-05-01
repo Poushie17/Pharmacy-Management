@@ -1,7 +1,6 @@
 "use client";
 
-import Menu from "../components/layout/Menu";
-//import Navbar from "@/frontend/app/components/layout/Navbar";
+import Menu from "../../../frontend/app/components/layout/Menu";
 
 export default function DashboardLayout({
   children,
@@ -9,6 +8,7 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   return (
+   
     <div className="drawer lg:drawer-open h-screen">
 
       <input id="my-drawer" type="checkbox" className="drawer-toggle" />

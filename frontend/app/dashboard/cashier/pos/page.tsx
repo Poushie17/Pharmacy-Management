@@ -1,40 +1,59 @@
 "use client";
 
-import { useState } from "react";
-import { medicines } from "../../../../data/medicines";
+import { useState, useEffect } from "react";
 
-const POSPage = () => {
+/* ================= TYPES ================= */
+type Medicine = {
+  id: number;
+  name: string;
+  category: string;
+  sellPrice: number;
+};
+
+type CartItem = Medicine & {
+  qty: number;
+};
+
+export default function POSPage() {
+  /* ================= STATE ================= */
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("All");
-  const [cart, setCart] = useState<any[]>([]);
+  const [medicines, setMedicines] = useState<Medicine[]>([]);
+  const [cart, setCart] = useState<CartItem[]>([]);
 
-  // ➕ ADD TO CART
-  const addToCart = (item: any) => {
-    const exist = cart.find((c) => c.id === item.id);
+  /* ================= FETCH DATA ================= */
+  useEffect(() => {
+    fetch("http://localhost:8000/medicines")
+      .then((res) => res.json())
+      .then((data: Medicine[]) => setMedicines(data));
+  }, []);
 
-    if (exist) {
-      setCart(
-        cart.map((c) =>
+  /* ================= CART LOGIC ================= */
+  const addToCart = (item: Medicine) => {
+    setCart((prev) => {
+      const exist = prev.find((c) => c.id === item.id);
+
+      if (exist) {
+        return prev.map((c) =>
           c.id === item.id ? { ...c, qty: c.qty + 1 } : c
-        )
-      );
-    } else {
-      setCart([...cart, { ...item, qty: 1 }]);
-    }
+        );
+      }
+
+      return [...prev, { ...item, qty: 1 }];
+    });
   };
 
-  // ➖ REMOVE
-  const removeFromCart = (id: string) => {
-    setCart(cart.filter((c) => c.id !== id));
+  const removeFromCart = (id: number) => {
+    setCart((prev) => prev.filter((c) => c.id !== id));
   };
 
-  // 🔢 TOTAL
+  /* ================= TOTAL ================= */
   const total = cart.reduce(
-    (sum, item) => sum + item.price * item.qty,
+    (sum, item) => sum + item.sellPrice * item.qty,
     0
   );
 
-  // 🔍 FILTER
+  /* ================= FILTER ================= */
   const filtered = medicines.filter((m) => {
     return (
       m.name.toLowerCase().includes(search.toLowerCase()) &&
@@ -42,13 +61,14 @@ const POSPage = () => {
     );
   });
 
+  /* ================= UI ================= */
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
 
-      {/* LEFT: PRODUCTS */}
+      {/* LEFT */}
       <div className="lg:col-span-2 space-y-4">
 
-        {/* FILTER BAR */}
+        {/* FILTER */}
         <div className="card bg-base-100 shadow border p-4 flex flex-col sm:flex-row gap-2">
 
           <input
@@ -71,7 +91,7 @@ const POSPage = () => {
 
         </div>
 
-        {/* PRODUCT GRID */}
+        {/* PRODUCTS */}
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
 
           {filtered.map((item) => (
@@ -103,7 +123,7 @@ const POSPage = () => {
         </div>
       </div>
 
-      {/* RIGHT: CART */}
+      {/* RIGHT CART */}
       <div className="card bg-base-100 shadow border h-fit">
 
         <div className="card-body">
@@ -127,7 +147,7 @@ const POSPage = () => {
                       {item.name}
                     </p>
                     <p className="text-xs opacity-60">
-                      {item.qty} × TK {item.price}
+                      {item.qty} × TK {item.sellPrice}
                     </p>
                   </div>
 
@@ -140,13 +160,11 @@ const POSPage = () => {
                 </div>
               ))}
 
-              {/* TOTAL */}
               <div className="flex justify-between font-bold pt-3">
                 <span>Total</span>
                 <span>TK {total}</span>
               </div>
 
-              {/* PAYMENT */}
               <button className="btn btn-success w-full mt-3">
                 Process Payment
               </button>
@@ -159,6 +177,4 @@ const POSPage = () => {
 
     </div>
   );
-};
-
-export default POSPage;
+}

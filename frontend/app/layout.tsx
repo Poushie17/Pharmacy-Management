@@ -26,12 +26,17 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      data-theme="dark"   
+      data-theme="dark"
       className={`${geistSans.variable} ${geistMono.variable} h-full`}
     >
-      <Navbar/>
+      
       <body className="h-full bg-base-200 text-base-content antialiased">
+
+        {/* ✅ Navbar must be inside body */}
+        <Navbar />
+
         {children}
+
       </body>
     </html>
   );

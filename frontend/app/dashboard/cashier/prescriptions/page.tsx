@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { prescriptionsData } from "../../../../data/prescriptions";
+import { prescriptionsData } from "@/data/prescriptions";
 
 import {
   RiFileExcel2Line,

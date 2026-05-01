@@ -1,18 +1,33 @@
 from pydantic import BaseModel
+from typing import Optional
 
-class LoginSchema(BaseModel):
-    username: str
-    password: str
-
-
-class MedicineCreate(BaseModel):
+class MedicineBase(BaseModel):
     name: str
     category: str
-    buy_price: float
     sell_price: float
+    buy_price: float
     stock: int
 
+class MedicineCreate(MedicineBase):
+    pass
 
-class SaleCreate(BaseModel):
+class Medicine(MedicineBase):
+    id: int
+    
+    class Config:
+        orm_mode = True
+
+class SaleBase(BaseModel):
     medicine_id: int
     quantity: int
+    total: float
+
+class SaleCreate(SaleBase):
+    pass
+
+class Sale(SaleBase):
+    id: int
+    profit: Optional[float] = None
+    
+    class Config:
+        orm_mode = True
