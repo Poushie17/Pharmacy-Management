@@ -1,15 +1,33 @@
 # models.py
-from sqlalchemy import Column, Integer, String, Float, ForeignKey, DateTime, Date,Text,Boolean
+from sqlalchemy import Column, Integer, String, Float, ForeignKey, DateTime, Date,Text,Boolean,JSON
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from database import Base
 
 class User(Base):
     __tablename__ = "users"
+
     id = Column(Integer, primary_key=True, index=True)
-    username = Column(String(50), unique=True)
-    password = Column(String(255))
-    role = Column(String(20))
+    username = Column(String(50), unique=True, nullable=False)
+    password = Column(String(255), nullable=False)
+    role = Column(String(20), default="cashier")
+    email = Column(String(100), nullable=True)
+    full_name = Column(String(100), nullable=True)
+    avatar = Column(String(500), nullable=True)
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+
+class Prescription(Base):
+    __tablename__ = "prescriptions"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    patient_name = Column(String(200), nullable=False)
+    doctor_name = Column(String(200), nullable=False)
+    prescription_date = Column(Date, nullable=False)
+    medicines = Column(JSON, default=list) 
+    notes = Column(Text, default="")
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
 
 class Medicine(Base):
     __tablename__ = "medicines"
@@ -76,3 +94,5 @@ class Supplier(Base):
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=func.now())
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+
+    

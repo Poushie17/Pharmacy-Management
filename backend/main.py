@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from database import Base, engine
 import models 
 
-from routes import medicines, sales,restock,suppliers
+from routes import medicines, sales,restock,suppliers,reports,prescription,admin_dashboard,settings
 
 app = FastAPI()
 
@@ -15,10 +15,14 @@ app.include_router(medicines.router)
 app.include_router(sales.router)
 app.include_router(restock.router) 
 app.include_router(suppliers.router)
-# Add CORS middleware
+app.include_router(reports.router)
+app.include_router(prescription.router)
+app.include_router(admin_dashboard.router)
+app.include_router(settings.router)
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],  # Your Next.js app
+    allow_origins=["http://localhost:3000"],  
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

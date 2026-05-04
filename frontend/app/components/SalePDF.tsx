@@ -1,3 +1,4 @@
+
 import {
   Document,
   Page,
@@ -146,19 +147,17 @@ interface Sale {
   profit: number;
 }
 
-export const PDFReceipt = ({ sale }: { sale: Sale }) => {
+export const SalePDF = ({ sale }: { sale: Sale }) => {
   const unitPrice = sale.total / sale.quantity;
 
   return (
     <Document>
       <Page size="A4" style={styles.page}>
-      
         <View style={styles.header}>
-       <Image
-  style={styles.logo}
-  src="http://localhost:3000/logo.png"
-/>
-
+         <Image
+           style={styles.logo}
+           src="http://localhost:3000/logo.png"
+         />
           <View style={styles.headerText}>
             <Text style={styles.title}>PHARMAC+</Text>
             <Text style={styles.subtitle}>
@@ -170,10 +169,8 @@ export const PDFReceipt = ({ sale }: { sale: Sale }) => {
           </View>
         </View>
 
-        {/* TITLE */}
         <Text style={styles.receiptTitle}>SALES RECEIPT</Text>
 
-        {/* INFO */}
         <View style={styles.info}>
           <View style={styles.row}>
             <Text style={styles.label}>Invoice:</Text>
@@ -181,14 +178,12 @@ export const PDFReceipt = ({ sale }: { sale: Sale }) => {
               INV-{sale.id.toString().padStart(6, "0")}
             </Text>
           </View>
-
           <View style={styles.row}>
             <Text style={styles.label}>Date:</Text>
             <Text style={styles.value}>{sale.date}</Text>
           </View>
         </View>
 
-        {/* TABLE HEADER */}
         <View style={styles.tableHeader}>
           <Text style={[styles.th, styles.col1]}>Medicine</Text>
           <Text style={[styles.th, styles.col2]}>Qty</Text>
@@ -196,7 +191,6 @@ export const PDFReceipt = ({ sale }: { sale: Sale }) => {
           <Text style={[styles.th, styles.col4]}>Total</Text>
         </View>
 
-        {/* TABLE ROW */}
         <View style={styles.tr}>
           <Text style={styles.col1}>{sale.medicine_name}</Text>
           <Text style={styles.col2}>{sale.quantity}</Text>
@@ -204,22 +198,15 @@ export const PDFReceipt = ({ sale }: { sale: Sale }) => {
           <Text style={styles.col4}>BDT {sale.total.toFixed(2)}</Text>
         </View>
 
-        {/* TOTALS */}
         <View style={styles.totals}>
           <View style={styles.totalRow}>
             <Text style={styles.totalLabel}>Subtotal:</Text>
-            <Text style={styles.totalValue}>
-              BDT {sale.total.toFixed(2)}
-            </Text>
+            <Text style={styles.totalValue}>BDT {sale.total.toFixed(2)}</Text>
           </View>
-
           <View style={styles.totalRow}>
             <Text style={styles.totalLabel}>Profit:</Text>
-            <Text style={styles.totalValue}>
-              BDT {(sale.profit || 0).toFixed(2)}
-            </Text>
+            <Text style={styles.totalValue}>BDT {(sale.profit || 0).toFixed(2)}</Text>
           </View>
-
           <View style={styles.totalRow}>
             <Text style={[styles.totalLabel, styles.grand]}>TOTAL:</Text>
             <Text style={[styles.totalValue, styles.grand]}>
@@ -228,7 +215,6 @@ export const PDFReceipt = ({ sale }: { sale: Sale }) => {
           </View>
         </View>
 
-        {/* FOOTER */}
         <View style={styles.footer}>
           <Text style={styles.footerText}>
             Thank you for choosing PHARMAC+
