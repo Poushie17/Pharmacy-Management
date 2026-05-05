@@ -46,6 +46,8 @@ const StockPage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [categories, setCategories] = useState<string[]>([]);
+  const [userRole, setUserRole] = useState<string>("");
+  const [showRoleError, setShowRoleError] = useState(false);
 
   const fetchMedicines = async () => {
     try {
@@ -66,10 +68,25 @@ const StockPage = () => {
   };
 
   useEffect(() => {
+    // Get user role from localStorage
+    const userStr = localStorage.getItem("user");
+    if (userStr) {
+      try {
+        const user = JSON.parse(userStr);
+        setUserRole(user.role);
+      } catch (e) {
+        console.error("Error parsing user:", e);
+      }
+    }
     fetchMedicines();
   }, []);
 
   const handleAdd = () => {
+    if (userRole !== "admin") {
+      setShowRoleError(true);
+      setTimeout(() => setShowRoleError(false), 3000);
+      return;
+    }
     setSelected(null);
     setForm({ 
       ...emptyForm, 
@@ -82,6 +99,11 @@ const StockPage = () => {
   };
 
   const handleEdit = (item: StockItem) => {
+    if (userRole !== "admin") {
+      setShowRoleError(true);
+      setTimeout(() => setShowRoleError(false), 3000);
+      return;
+    }
     setSelected(item);
     setForm({ ...item });
     setOpen(true);
@@ -93,7 +115,6 @@ const StockPage = () => {
     const { name, value, type } = e.target;
     
     if (type === "number") {
-      // Allow empty string for better UX, convert to number on blur or save
       setForm({
         ...form,
         [name]: value === "" ? "" : Number(value),
@@ -106,7 +127,6 @@ const StockPage = () => {
     }
   };
 
-  // Handle blur to ensure number fields have proper values
   const handleBlur = (fieldName: string) => {
     const value = form[fieldName as keyof StockItem];
     if (value === "" || value === null) {
@@ -118,7 +138,12 @@ const StockPage = () => {
   };
 
   const handleSave = async () => {
-    // Convert empty strings to numbers
+    if (userRole !== "admin") {
+      setShowRoleError(true);
+      setTimeout(() => setShowRoleError(false), 3000);
+      return;
+    }
+
     const stockValue = form.stock === "" ? 0 : Number(form.stock);
     const priceValue = form.price === "" ? 0 : Number(form.price);
     const purchasePriceValue = form.purchasePrice === "" ? 0 : Number(form.purchasePrice);
@@ -177,6 +202,12 @@ const StockPage = () => {
   };
 
   const handleDelete = async (id: number) => {
+    if (userRole !== "admin") {
+      setShowRoleError(true);
+      setTimeout(() => setShowRoleError(false), 3000);
+      return;
+    }
+    
     if (!confirm("Are you sure you want to delete this medicine?")) return;
     
     try {
@@ -237,14 +268,43 @@ const StockPage = () => {
           <p className="text-sm text-base-content/70 mt-1">
             Manage your medicine inventory
           </p>
+          <div className="mt-2">
+            <span className={`badge ${userRole === "admin" ? "badge-primary" : "badge-secondary"}`}>
+              {userRole === "admin" ? "Admin Access (Full Control)" : "Cashier Access (View Only)"}
+            </span>
+          </div>
         </div>
-        <button className="btn btn-primary" onClick={handleAdd}>
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-          </svg>
-          Add Medicine
-        </button>
+        {userRole === "admin" && (
+          <button className="btn btn-primary" onClick={handleAdd}>
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+            Add Medicine
+          </button>
+        )}
+        {userRole === "cashier" && (
+          <div className="tooltip tooltip-left" data-tip="Cashiers can only view stock">
+            <button className="btn btn-disabled" disabled>
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+              Add Medicine (Disabled)
+            </button>
+          </div>
+        )}
       </div>
+
+      {/* Role Error Alert */}
+      {showRoleError && (
+        <div className="alert alert-warning shadow-lg">
+          <div>
+            <svg xmlns="http://www.w3.org/2000/svg" className="stroke-current flex-shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+            <span>This action requires Admin privileges. Cashiers can only view stock.</span>
+          </div>
+        </div>
+      )}
 
       {/* Error Alert */}
       {error && (
@@ -385,20 +445,26 @@ const StockPage = () => {
                         )}
                       </td>
                       <td className="flex gap-2">
-                        <button
-                          className="btn btn-xs btn-outline btn-info"
-                          onClick={() => handleEdit(item)}
-                          title="Edit Medicine"
-                        >
-                          Edit
-                        </button>
-                        <button
-                          className="btn btn-xs btn-outline btn-error"
-                          onClick={() => handleDelete(item.id)}
-                          title="Delete Medicine"
-                        >
-                          Delete
-                        </button>
+                        {userRole === "admin" ? (
+                          <>
+                            <button
+                              className="btn btn-xs btn-outline btn-info"
+                              onClick={() => handleEdit(item)}
+                              title="Edit Medicine"
+                            >
+                              Edit
+                            </button>
+                            <button
+                              className="btn btn-xs btn-outline btn-error"
+                              onClick={() => handleDelete(item.id)}
+                              title="Delete Medicine"
+                            >
+                              Delete
+                            </button>
+                          </>
+                        ) : (
+                          <span className="text-xs text-base-content/50 italic">View Only</span>
+                        )}
                       </td>
                     </tr>
                   ))
@@ -409,8 +475,8 @@ const StockPage = () => {
         </div>
       </div>
 
-      {/* MODAL - Add/Edit Medicine */}
-      {open && (
+      {/* MODAL - Add/Edit Medicine (Only shown for Admin) */}
+      {open && userRole === "admin" && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
           <div className="bg-base-100 rounded-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
             <div className="p-6">

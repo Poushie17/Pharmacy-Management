@@ -2,6 +2,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import api from "../../lib/axios";
 import { PDFDownloadLink } from "@react-pdf/renderer";
 import { SalePDF } from "../components/SalePDF";
@@ -11,6 +12,8 @@ import {
   RiRefreshLine,
   RiSearchLine,
   RiCalendarLine,
+  RiAdminLine,
+  RiUserStarLine,
 } from "react-icons/ri";
 
 type Sale = {
@@ -24,24 +27,46 @@ type Sale = {
 };
 
 const SalesHistoryPage = () => {
+  const router = useRouter();
   const [sales, setSales] = useState<Sale[]>([]);
   const [filteredSales, setFilteredSales] = useState<Sale[]>([]);
   const [search, setSearch] = useState("");
   const [dateFilter, setDateFilter] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [user, setUser] = useState<any>(null);
   const [stats, setStats] = useState({
     totalSales: 0,
     totalRevenue: 0,
     totalProfit: 0,
   });
 
-  const API_URL = "http://localhost:8000";
+  useEffect(() => {
+    // Check authentication
+    const token = localStorage.getItem("token");
+    const userStr = localStorage.getItem("user");
+    
+    if (!token || !userStr) {
+      router.push("/login");
+      return;
+    }
+    
+    try {
+      const parsedUser = JSON.parse(userStr);
+      setUser(parsedUser);
+    } catch (err) {
+      console.error("Error parsing user:", err);
+      router.push("/login");
+      return;
+    }
+    
+    fetchSales();
+  }, [router]);
 
   const fetchSales = async () => {
     try {
       setLoading(true);
-       const response = await api.get("/sales/");
+      const response = await api.get("/sales/");
       setSales(response.data);
       setFilteredSales(response.data);
 
@@ -63,15 +88,17 @@ const SalesHistoryPage = () => {
       setError("");
     } catch (err: any) {
       console.error("Fetch error:", err);
-      setError(err.response?.data?.detail || "Failed to fetch sales history");
+      if (err.response?.status === 401) {
+        localStorage.removeItem("token");
+        localStorage.removeItem("user");
+        router.push("/login");
+      } else {
+        setError(err.response?.data?.detail || "Failed to fetch sales history");
+      }
     } finally {
       setLoading(false);
     }
   };
-
-  useEffect(() => {
-    fetchSales();
-  }, []);
 
   useEffect(() => {
     let filtered = [...sales];
@@ -101,6 +128,12 @@ Total: ৳${sale.total}
 Profit: ৳${sale.profit || 0}`);
   };
 
+  const handleLogout = () => {
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
+    router.push("/login");
+  };
+
   if (loading && sales.length === 0) {
     return (
       <div className="min-h-screen bg-base-200 flex items-center justify-center">
@@ -112,27 +145,52 @@ Profit: ৳${sale.profit || 0}`);
     );
   }
 
+  if (!user) return null;
+
+  const isAdmin = user?.role === "admin";
+
   return (
     <div className="space-y-6 p-6">
-   
+      {/* Header with Role Badge */}
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-2xl font-bold text-primary">Sales History</h1>
           <p className="text-sm text-base-content/70 mt-1">
-            View, manage and download all your sales receipts
+            View and download all your sales receipts
           </p>
+          <div className="mt-2 flex items-center gap-2">
+            {isAdmin ? (
+              <>
+                <RiAdminLine className="text-primary" />
+                <span className="badge badge-primary badge-sm">Admin Access</span>
+              </>
+            ) : (
+              <>
+                <RiUserStarLine className="text-secondary" />
+                <span className="badge badge-secondary badge-sm">Cashier Mode (View Only)</span>
+              </>
+            )}
+          </div>
         </div>
-        <button
-          className="btn btn-outline btn-primary"
-          onClick={fetchSales}
-          disabled={loading}
-        >
-          <RiRefreshLine className="mr-2" />
-          Refresh
-        </button>
+        <div className="flex gap-2">
+          <button
+            className="btn btn-outline btn-primary btn-sm"
+            onClick={fetchSales}
+            disabled={loading}
+          >
+            <RiRefreshLine className="mr-2" />
+            Refresh
+          </button>
+          <button
+            onClick={handleLogout}
+            className="btn btn-outline btn-error btn-sm"
+          >
+            Logout
+          </button>
+        </div>
       </div>
 
- 
+      {/* Error Alert */}
       {error && (
         <div className="alert alert-error shadow-lg">
           <div>
@@ -154,6 +212,7 @@ Profit: ৳${sale.profit || 0}`);
         </div>
       )}
 
+      {/* Stats Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="card bg-primary text-primary-content shadow-xl">
           <div className="card-body">
@@ -247,6 +306,9 @@ Profit: ৳${sale.profit || 0}`);
                     <td colSpan={7} className="text-center py-8 text-base-content/50">
                       {sales.length === 0 ? (
                         <div>
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 mx-auto mb-2 opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                          </svg>
                           <p>No sales found</p>
                           <p className="text-sm mt-1">
                             Make your first sale from the POS page

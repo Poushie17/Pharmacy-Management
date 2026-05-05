@@ -1,4 +1,4 @@
-// frontend/context/AuthContext.tsx
+// context/AuthContext.tsx
 "use client";
 
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
@@ -28,13 +28,17 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
   const router = useRouter();
 
   useEffect(() => {
-    // Sync with localStorage immediately (no async, no delay)
+    // Read from localStorage immediately on mount
     if (typeof window !== "undefined") {
       const storedToken = localStorage.getItem("token");
       const storedUser = localStorage.getItem("user");
+      
+      console.log("AuthProvider init - Token:", storedToken ? "Found" : "Not found");
+      console.log("AuthProvider init - User:", storedUser ? "Found" : "Not found");
       
       if (storedToken && storedUser) {
         try {
@@ -42,9 +46,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setUser(JSON.parse(storedUser));
         } catch (e) {
           console.error("Error parsing user:", e);
+          localStorage.removeItem("token");
+          localStorage.removeItem("user");
         }
       }
     }
+    setLoading(false);
   }, []);
 
   const login = async (username: string, password: string) => {
@@ -56,17 +63,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (response.data.success) {
         const { token, user } = response.data;
         
-        // Update state immediately
+        // Update state
         setToken(token);
         setUser(user);
         
-        // Update localStorage
-        if (typeof window !== "undefined") {
-          localStorage.setItem("token", token);
-          localStorage.setItem("user", JSON.stringify(user));
-        }
+        // Store in localStorage
+        localStorage.setItem("token", token);
+        localStorage.setItem("user", JSON.stringify(user));
         
-        // Redirect immediately
+        // Redirect using window.location for full page reload
         if (user.role === "admin") {
           window.location.href = "/admin/dashboard";
         } else {
@@ -81,18 +86,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = () => {
     setToken(null);
     setUser(null);
-    
-    if (typeof window !== "undefined") {
-      localStorage.removeItem("token");
-      localStorage.removeItem("user");
-    }
-    
-    window.location.href = "/login";
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
+    router.push("/login");
   };
 
   const isAuthenticated = !!token && !!user;
   const isAdmin = user?.role === "admin";
   const isCashier = user?.role === "cashier";
+
+  // Don't render anything until we've checked localStorage
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-base-200 flex items-center justify-center">
+        <div className="text-center">
+          <span className="loading loading-spinner loading-lg text-primary"></span>
+          <p className="mt-4">Loading...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <AuthContext.Provider value={{ user, token, login, logout, isAuthenticated, isAdmin, isCashier }}>

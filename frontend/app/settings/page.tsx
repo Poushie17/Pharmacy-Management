@@ -2,9 +2,9 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useAuth } from "../../../frontend/context/AuthContext";
+import { useAuth } from "@/context/AuthContext";  // Fix import path
 import { useRouter } from "next/navigation";
-import api from "../../../frontend/lib/axios";
+import api from "@/lib/axios";  // Fix import path
 import {
   RiUserSettingsLine,
   RiLockPasswordLine,
@@ -92,10 +92,20 @@ const SettingsPage = () => {
   });
 
   useEffect(() => {
-    if (!isAuthenticated) {
+    // Check authentication directly from localStorage as fallback
+    const token = localStorage.getItem("token");
+    const userStr = localStorage.getItem("user");
+    
+    if (!token || !userStr) {
       router.push("/login");
       return;
     }
+    
+    if (!isAuthenticated) {
+      // If AuthContext says not authenticated but localStorage has data, still try to load
+      console.log("AuthContext says not authenticated but localStorage has data");
+    }
+    
     fetchSettings();
   }, [isAuthenticated, router]);
 
@@ -114,7 +124,11 @@ const SettingsPage = () => {
       setError("");
     } catch (err: any) {
       console.error("Fetch error:", err);
-      setError(err.response?.data?.detail || "Failed to fetch settings");
+      if (err.response?.status === 401) {
+        router.push("/login");
+      } else {
+        setError(err.response?.data?.detail || "Failed to fetch settings");
+      }
     } finally {
       setLoading(false);
     }
@@ -217,7 +231,7 @@ const SettingsPage = () => {
         <div>
           <h1 className="text-2xl font-bold text-primary">Settings</h1>
           <p className="text-sm text-base-content/70 mt-1">
-            Welcome, {user?.full_name} ({user?.role})
+            Welcome, {user?.full_name || profile.fullName} ({user?.role || profile.role})
           </p>
         </div>
         <div className="flex gap-2">

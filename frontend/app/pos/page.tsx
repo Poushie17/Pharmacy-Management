@@ -2,9 +2,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useAuth } from '@/context/AuthContext';  // Use @ alias
 import { useRouter } from 'next/navigation';
-import api from '@/lib/axios';  // Use @ alias
+import api from '@/lib/axios';
 
 interface Medicine {
   id: number;
@@ -24,8 +23,8 @@ interface CartItem {
 }
 
 export default function POSPage() {
-  const { isAuthenticated, user, logout } = useAuth();
   const router = useRouter();
+  const [user, setUser] = useState<any>(null);
   const [medicines, setMedicines] = useState<Medicine[]>([]);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -33,21 +32,31 @@ export default function POSPage() {
   const [categories, setCategories] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [checkingAuth, setCheckingAuth] = useState(true);
 
-  // Debug logging
   useEffect(() => {
-    console.log("=== POS Page Debug ===");
-    console.log("isAuthenticated:", isAuthenticated);
-    console.log("user:", user);
-    console.log("token in localStorage:", localStorage.getItem("token"));
+    // Check authentication from localStorage
+    const token = localStorage.getItem('token');
+    const userStr = localStorage.getItem('user');
     
-    if (!isAuthenticated) {
-      console.log("Not authenticated, redirecting to login");
+    if (!token || !userStr) {
       router.push('/login');
       return;
     }
+    
+    try {
+      const parsedUser = JSON.parse(userStr);
+      setUser(parsedUser);
+      console.log("POS Page - User:", parsedUser);
+    } catch (err) {
+      console.error("Error parsing user:", err);
+      router.push('/login');
+      return;
+    }
+    
+    setCheckingAuth(false);
     fetchMedicines();
-  }, [isAuthenticated, router, user]);
+  }, [router]);
 
   const fetchMedicines = async () => {
     try {
@@ -61,10 +70,22 @@ export default function POSPage() {
       setError('');
     } catch (err: any) {
       console.error("Fetch error:", err);
-      setError('Failed to fetch medicines');
+      if (err.response?.status === 401) {
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        router.push('/login');
+      } else {
+        setError('Failed to fetch medicines');
+      }
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    router.push('/login');
   };
 
   const handleAddToCart = (medicine: Medicine) => {
@@ -167,7 +188,7 @@ export default function POSPage() {
   const cartTotal = cart.reduce((sum, item) => sum + item.total, 0);
 
   // Show loading while checking auth
-  if (!user && isAuthenticated === undefined) {
+  if (checkingAuth) {
     return (
       <div className="min-h-screen bg-base-200 flex items-center justify-center">
         <div className="text-center">
@@ -178,6 +199,8 @@ export default function POSPage() {
     );
   }
 
+  if (!user) return null;
+
   return (
     <div className="min-h-screen bg-base-200">
       <div className="container mx-auto p-4">
@@ -185,9 +208,14 @@ export default function POSPage() {
           <div className="flex justify-between items-center">
             <div>
               <h1 className="text-3xl font-bold text-primary">Point of Sale System</h1>
-              <p className="text-base-content/70 mt-2">Welcome, {user?.full_name} ({user?.role})</p>
+              <div className="mt-2">
+                <p className="text-base-content/70">Welcome, {user?.full_name} ({user?.role})</p>
+                <span className="badge badge-secondary badge-sm mt-1">
+                  {user?.role === "admin" ? "Admin Access" : "Cashier Mode"}
+                </span>
+              </div>
             </div>
-            <button onClick={logout} className="btn btn-outline btn-sm">Logout</button>
+            <button onClick={handleLogout} className="btn btn-outline btn-sm">Logout</button>
           </div>
         </div>
 
@@ -206,7 +234,7 @@ export default function POSPage() {
                 <div className="flex-1">
                   <input
                     type="text"
-                    placeholder="Search medicines..."
+                    placeholder="🔍 Search medicines..."
                     className="input input-bordered w-full"
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
@@ -230,29 +258,42 @@ export default function POSPage() {
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-[600px] overflow-y-auto">
-                  {filteredMedicines.map(medicine => (
-                    <div key={medicine.id} className="card bg-base-200 shadow-md">
-                      <div className="card-body p-4">
-                        <div className="flex justify-between items-start">
-                          <div>
-                            <h3 className="card-title text-base">{medicine.name}</h3>
-                            <p className="text-sm text-base-content/70">{medicine.category}</p>
+                  {filteredMedicines.length === 0 ? (
+                    <div className="col-span-2 text-center py-8 text-base-content/50">
+                      No products found
+                    </div>
+                  ) : (
+                    filteredMedicines.map(medicine => (
+                      <div key={medicine.id} className="card bg-base-200 shadow-md hover:shadow-lg transition-shadow">
+                        <div className="card-body p-4">
+                          <div className="flex justify-between items-start">
+                            <div>
+                              <h3 className="card-title text-base font-bold">{medicine.name}</h3>
+                              <p className="text-sm text-base-content/70">{medicine.category}</p>
+                            </div>
+                            <div className={`badge ${medicine.stock > 10 ? 'badge-primary' : medicine.stock > 0 ? 'badge-warning' : 'badge-error'}`}>
+                              Stock: {medicine.stock}
+                            </div>
                           </div>
-                          <div className="badge badge-primary">Stock: {medicine.stock}</div>
-                        </div>
-                        <div className="flex justify-between items-center mt-2">
-                          <span className="text-2xl font-bold text-accent">৳{medicine.sell_price}</span>
-                          <button
-                            className="btn btn-primary btn-sm"
-                            onClick={() => handleAddToCart(medicine)}
-                            disabled={medicine.stock === 0}
-                          >
-                            Add to Cart
-                          </button>
+                          <div className="flex justify-between items-center mt-2">
+                            <div>
+                              <span className="text-2xl font-bold text-accent">৳{medicine.sell_price}</span>
+                              {medicine.buy_price && (
+                                <p className="text-xs text-base-content/50">Cost: ৳{medicine.buy_price}</p>
+                              )}
+                            </div>
+                            <button
+                              className="btn btn-primary btn-sm"
+                              onClick={() => handleAddToCart(medicine)}
+                              disabled={medicine.stock === 0}
+                            >
+                              {medicine.stock === 0 ? 'Out of Stock' : 'Add to Cart'}
+                            </button>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    ))
+                  )}
                 </div>
               )}
             </div>
@@ -260,11 +301,24 @@ export default function POSPage() {
 
           <div className="lg:col-span-1">
             <div className="bg-base-100 rounded-box shadow-lg p-6 sticky top-4">
-              <h2 className="text-xl font-bold mb-4 text-secondary">Shopping Cart</h2>
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-bold text-secondary">Shopping Cart</h2>
+                {cart.length > 0 && (
+                  <button 
+                    className="btn btn-ghost btn-sm text-error"
+                    onClick={() => setCart([])}
+                  >
+                    Clear All
+                  </button>
+                )}
+              </div>
               
               <div className="space-y-3 max-h-[400px] overflow-y-auto mb-4">
                 {cart.length === 0 ? (
                   <div className="text-center text-base-content/50 py-8">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 mx-auto mb-2 opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-1.5 6M17 13l1.5 6M9 21h6M12 15v6" />
+                    </svg>
                     Cart is empty
                   </div>
                 ) : (
@@ -290,7 +344,7 @@ export default function POSPage() {
                           >
                             -
                           </button>
-                          <span className="font-mono w-8 text-center">{item.qty}</span>
+                          <span className="font-mono w-8 text-center font-bold">{item.qty}</span>
                           <button
                             className="btn btn-xs btn-outline"
                             onClick={() => handleUpdateQuantity(item.medicine_id, item.qty + 1)}
@@ -298,7 +352,7 @@ export default function POSPage() {
                             +
                           </button>
                         </div>
-                        <span className="font-bold">৳{item.total}</span>
+                        <span className="font-bold text-lg">৳{item.total}</span>
                       </div>
                     </div>
                   ))
@@ -316,7 +370,14 @@ export default function POSPage() {
                     onClick={handleCheckout}
                     disabled={loading}
                   >
-                    {loading ? <span className="loading loading-spinner"></span> : 'Complete Sale'}
+                    {loading ? (
+                      <>
+                        <span className="loading loading-spinner"></span>
+                        Processing...
+                      </>
+                    ) : (
+                      'Complete Sale'
+                    )}
                   </button>
                 </div>
               )}
