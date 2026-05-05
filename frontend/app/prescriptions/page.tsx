@@ -17,7 +17,6 @@ import {
   RiRefreshLine,
   RiCalendarLine,
   RiUser3Line,
-  
   RiMedicineBottleLine,
 } from "react-icons/ri";
 
@@ -250,15 +249,12 @@ const PrescriptionsPage = () => {
       {error && (
         <div className="alert alert-error shadow-lg">
           <div>
-            <svg xmlns="http://www.w3.org/2000/svg" className="stroke-current flex-shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
             <span>{error}</span>
           </div>
         </div>
       )}
 
-      {/* Stats Cards - No gradients */}
+      {/* Stats Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="card bg-primary text-primary-content shadow-xl">
           <div className="card-body">
@@ -344,10 +340,9 @@ const PrescriptionsPage = () => {
                   {/* Left - Patient Info */}
                   <div className="flex-1">
                     <div className="flex items-center gap-3 mb-3">
-                      <div className="avatar placeholder">
-                        <div className="bg-primary text-primary-content rounded-full w-10">
-                          <span className="text-sm">{item.patient.charAt(0)}</span>
-                        </div>
+                      {/* Fixed Avatar - Properly Centered */}
+                      <div className="bg-primary text-primary-content rounded-full w-10 h-10 flex items-center justify-center">
+                        <span className="text-sm font-medium">{item.patient.charAt(0).toUpperCase()}</span>
                       </div>
                       <div>
                         <h2 className="font-bold text-lg">{item.patient}</h2>

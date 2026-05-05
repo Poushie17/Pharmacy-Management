@@ -1,8 +1,8 @@
-
+// app/reports/page.tsx
 "use client";
 
 import { useState, useEffect } from "react";
-import axios from "axios";
+import api from "../../lib/axios";  // Use api instead of axios
 import {
   RiFilePdfLine,
   RiFileExcel2Line,
@@ -70,12 +70,11 @@ const ReportsPage = () => {
   const [error, setError] = useState("");
   const [exporting, setExporting] = useState(false);
 
-  const API_URL = "http://localhost:8000";
-
   const fetchReportData = async () => {
     try {
       setLoading(true);
-      const response = await axios.get(`${API_URL}/reports/dashboard`, {
+      // Use api.get instead of axios.get - this includes auth token
+      const response = await api.get("/reports/dashboard", {
         params: { period, date }
       });
       setReportData(response.data);
@@ -99,7 +98,6 @@ const ReportsPage = () => {
       setExporting(true);
       const doc = new jsPDF();
       
-      // Header
       doc.setFontSize(20);
       doc.setTextColor(16, 185, 129);
       doc.text("PHARMAC+ PHARMACY", 20, 20);
@@ -112,7 +110,6 @@ const ReportsPage = () => {
       doc.text(`Generated on: ${new Date().toLocaleString()}`, 20, 45);
       doc.text(`Period: ${date}`, 20, 52);
       
-      // Summary
       doc.setFontSize(12);
       doc.setTextColor(0);
       doc.text("Summary", 20, 70);
@@ -130,7 +127,6 @@ const ReportsPage = () => {
         headStyles: { fillColor: [16, 185, 129], textColor: 255 },
       });
       
-      // Top Selling
       const finalY = (doc as any).lastAutoTable?.finalY || 110;
       doc.text("Top Selling Medicines", 20, finalY + 15);
       
@@ -160,13 +156,13 @@ const ReportsPage = () => {
       setExporting(true);
       
       if (type === "sales") {
-        const response = await axios.get(`${API_URL}/reports/export/sales`);
+        const response = await api.get("/reports/export/sales");
         const ws = XLSX.utils.json_to_sheet(response.data.data);
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "Sales Report");
         XLSX.writeFile(wb, `sales_report_${date}.xlsx`);
       } else {
-        const response = await axios.get(`${API_URL}/reports/export/stock`);
+        const response = await api.get("/reports/export/stock");
         const ws = XLSX.utils.json_to_sheet(response.data.data);
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "Stock Report");
@@ -195,7 +191,6 @@ const ReportsPage = () => {
 
   return (
     <div className="space-y-6 p-6">
-      {/* HEADER */}
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-2xl font-bold text-primary">Reports & Analytics</h1>
@@ -213,19 +208,14 @@ const ReportsPage = () => {
         </button>
       </div>
 
-      {/* Error Alert */}
       {error && (
         <div className="alert alert-error shadow-lg">
           <div>
-            <svg xmlns="http://www.w3.org/2000/svg" className="stroke-current flex-shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
             <span>{error}</span>
           </div>
         </div>
       )}
 
-      {/* EXPORT BUTTONS */}
       <div className="flex flex-wrap gap-2">
         <button 
           className="btn btn-primary btn-sm gap-2"
@@ -252,7 +242,6 @@ const ReportsPage = () => {
         </button>
       </div>
 
-      {/* FILTERS */}
       <div className="card bg-base-100 shadow-xl border">
         <div className="card-body">
           <div className="flex flex-col sm:flex-row gap-3">
@@ -282,7 +271,6 @@ const ReportsPage = () => {
         </div>
       </div>
 
-      {/* KPI CARDS */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="card bg-gradient-to-r from-primary to-primary-focus text-primary-content shadow-xl">
           <div className="card-body">
@@ -333,9 +321,7 @@ const ReportsPage = () => {
         </div>
       </div>
 
-      {/* CHARTS ROW 1 */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* TOP SELLING */}
         <div className="card bg-base-100 shadow-xl border">
           <div className="card-body">
             <h2 className="font-semibold text-lg mb-3">Top Selling Medicines</h2>
@@ -357,14 +343,12 @@ const ReportsPage = () => {
           </div>
         </div>
 
-        {/* ALERTS */}
         <div className="card bg-base-100 shadow-xl border">
           <div className="card-body">
             <h2 className="font-semibold text-lg mb-3 flex items-center gap-2">
               <RiAlertLine className="text-warning" />
               Stock Alerts
             </h2>
-
             <div className="space-y-3">
               <div className="flex justify-between items-center p-3 bg-base-200 rounded-lg">
                 <div>
@@ -375,7 +359,6 @@ const ReportsPage = () => {
                   {reportData.alerts.lowStock}
                 </span>
               </div>
-
               <div className="flex justify-between items-center p-3 bg-base-200 rounded-lg">
                 <div>
                   <p className="font-medium">Expiring Soon</p>
@@ -390,9 +373,7 @@ const ReportsPage = () => {
         </div>
       </div>
 
-      {/* CHARTS ROW 2 */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* SALES TREND LINE CHART */}
         <div className="card bg-base-100 shadow-xl border">
           <div className="card-body">
             <h2 className="font-semibold text-lg mb-4">Sales Trend</h2>
@@ -413,7 +394,6 @@ const ReportsPage = () => {
           </div>
         </div>
 
-        {/* PIE CHART */}
         <div className="card bg-base-100 shadow-xl border">
           <div className="card-body">
             <h2 className="font-semibold text-lg mb-4">Sales by Product</h2>
@@ -444,7 +424,6 @@ const ReportsPage = () => {
         </div>
       </div>
 
-      {/* Footer Info */}
       <div className="text-center text-xs text-base-content/50 py-4">
         Report generated on {new Date().toLocaleString()} | Data based on {period} sales
       </div>

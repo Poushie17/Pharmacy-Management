@@ -2,7 +2,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import axios from 'axios';
+import { useAuth } from '@/context/AuthContext';  // Use @ alias
+import { useRouter } from 'next/navigation';
+import api from '@/lib/axios';  // Use @ alias
 
 interface Medicine {
   id: number;
@@ -22,6 +24,8 @@ interface CartItem {
 }
 
 export default function POSPage() {
+  const { isAuthenticated, user, logout } = useAuth();
+  const router = useRouter();
   const [medicines, setMedicines] = useState<Medicine[]>([]);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -30,26 +34,34 @@ export default function POSPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const API_URL = 'http://localhost:8000';
-
-  // Fetch medicines
+  // Debug logging
   useEffect(() => {
+    console.log("=== POS Page Debug ===");
+    console.log("isAuthenticated:", isAuthenticated);
+    console.log("user:", user);
+    console.log("token in localStorage:", localStorage.getItem("token"));
+    
+    if (!isAuthenticated) {
+      console.log("Not authenticated, redirecting to login");
+      router.push('/login');
+      return;
+    }
     fetchMedicines();
-  }, []);
+  }, [isAuthenticated, router, user]);
 
   const fetchMedicines = async () => {
     try {
       setLoading(true);
-      const response = await axios.get(`${API_URL}/medicines/`);
+      console.log("Fetching medicines...");
+      const response = await api.get('/medicines/');
+      console.log("Medicines fetched:", response.data.length);
       setMedicines(response.data);
-      
-      // Extract unique categories
       const uniqueCategories = [...new Set(response.data.map((med: Medicine) => med.category))];
       setCategories(uniqueCategories);
       setError('');
-    } catch (err) {
+    } catch (err: any) {
+      console.error("Fetch error:", err);
       setError('Failed to fetch medicines');
-      console.error(err);
     } finally {
       setLoading(false);
     }
@@ -133,12 +145,8 @@ export default function POSPage() {
         }))
       };
       
-      const response = await axios.post(`${API_URL}/sales/`, payload);
-      
-      // Show success message
+      const response = await api.post('/sales/', payload);
       alert(`Sale completed! Total: ৳${response.data.total}`);
-      
-      // Clear cart and refresh medicines
       setCart([]);
       await fetchMedicines();
       setError('');
@@ -158,30 +166,42 @@ export default function POSPage() {
 
   const cartTotal = cart.reduce((sum, item) => sum + item.total, 0);
 
+  // Show loading while checking auth
+  if (!user && isAuthenticated === undefined) {
+    return (
+      <div className="min-h-screen bg-base-200 flex items-center justify-center">
+        <div className="text-center">
+          <span className="loading loading-spinner loading-lg text-primary"></span>
+          <p className="mt-4">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-base-200">
       <div className="container mx-auto p-4">
-        {/* Header */}
         <div className="bg-base-100 rounded-box shadow-lg p-6 mb-6">
-          <h1 className="text-3xl font-bold text-primary">Point of Sale System</h1>
-          <p className="text-base-content/70 mt-2">Quick and easy billing</p>
+          <div className="flex justify-between items-center">
+            <div>
+              <h1 className="text-3xl font-bold text-primary">Point of Sale System</h1>
+              <p className="text-base-content/70 mt-2">Welcome, {user?.full_name} ({user?.role})</p>
+            </div>
+            <button onClick={logout} className="btn btn-outline btn-sm">Logout</button>
+          </div>
         </div>
 
-        {/* Error Alert */}
         {error && (
           <div className="alert alert-error mb-6 shadow-lg">
             <span>{error}</span>
           </div>
         )}
 
-        {/* Main Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Products Section */}
           <div className="lg:col-span-2">
             <div className="bg-base-100 rounded-box shadow-lg p-6">
               <h2 className="text-xl font-bold mb-4 text-secondary">Products</h2>
               
-              {/* Search and Filter */}
               <div className="flex gap-4 mb-4">
                 <div className="flex-1">
                   <input
@@ -204,7 +224,6 @@ export default function POSPage() {
                 </select>
               </div>
 
-              {/* Products Grid */}
               {loading && medicines.length === 0 ? (
                 <div className="flex justify-center py-8">
                   <span className="loading loading-spinner loading-lg text-primary"></span>
@@ -239,12 +258,10 @@ export default function POSPage() {
             </div>
           </div>
 
-          {/* Cart Section */}
           <div className="lg:col-span-1">
             <div className="bg-base-100 rounded-box shadow-lg p-6 sticky top-4">
               <h2 className="text-xl font-bold mb-4 text-secondary">Shopping Cart</h2>
               
-              {/* Cart Items */}
               <div className="space-y-3 max-h-[400px] overflow-y-auto mb-4">
                 {cart.length === 0 ? (
                   <div className="text-center text-base-content/50 py-8">
@@ -288,7 +305,6 @@ export default function POSPage() {
                 )}
               </div>
 
-              {/* Cart Summary */}
               {cart.length > 0 && (
                 <div className="border-t border-base-300 pt-4">
                   <div className="flex justify-between items-center mb-4">
@@ -300,11 +316,7 @@ export default function POSPage() {
                     onClick={handleCheckout}
                     disabled={loading}
                   >
-                    {loading ? (
-                      <span className="loading loading-spinner"></span>
-                    ) : (
-                      'Complete Sale'
-                    )}
+                    {loading ? <span className="loading loading-spinner"></span> : 'Complete Sale'}
                   </button>
                 </div>
               )}

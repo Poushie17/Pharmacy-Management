@@ -1,8 +1,7 @@
-// app/stock/page.tsx
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import axios from "axios";
+import api from "../../lib/axios";
 
 type StockItem = {
   id: number;
@@ -48,12 +47,10 @@ const StockPage = () => {
   const [error, setError] = useState("");
   const [categories, setCategories] = useState<string[]>([]);
 
-  const API_URL = "http://localhost:8000";
-
   const fetchMedicines = async () => {
     try {
       setLoading(true);
-      const response = await axios.get(`${API_URL}/medicines/`);
+      const response = await api.get("/medicines/");
       console.log("Fetched data:", response.data);
       setStockData(response.data);
       
@@ -74,7 +71,13 @@ const StockPage = () => {
 
   const handleAdd = () => {
     setSelected(null);
-    setForm({ ...emptyForm });
+    setForm({ 
+      ...emptyForm, 
+      stock: 0,
+      price: 0,
+      purchasePrice: 0,
+      minStock: 20 
+    });
     setOpen(true);
   };
 
@@ -87,37 +90,79 @@ const StockPage = () => {
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
   ) => {
-    setForm({
-      ...form,
-      [e.target.name]:
-        e.target.type === "number"
-          ? Number(e.target.value)
-          : e.target.value,
-    });
+    const { name, value, type } = e.target;
+    
+    if (type === "number") {
+      // Allow empty string for better UX, convert to number on blur or save
+      setForm({
+        ...form,
+        [name]: value === "" ? "" : Number(value),
+      });
+    } else {
+      setForm({
+        ...form,
+        [name]: value,
+      });
+    }
+  };
+
+  // Handle blur to ensure number fields have proper values
+  const handleBlur = (fieldName: string) => {
+    const value = form[fieldName as keyof StockItem];
+    if (value === "" || value === null) {
+      setForm({
+        ...form,
+        [fieldName]: 0,
+      });
+    }
   };
 
   const handleSave = async () => {
+    // Convert empty strings to numbers
+    const stockValue = form.stock === "" ? 0 : Number(form.stock);
+    const priceValue = form.price === "" ? 0 : Number(form.price);
+    const purchasePriceValue = form.purchasePrice === "" ? 0 : Number(form.purchasePrice);
+    const minStockValue = form.minStock === "" ? 20 : Number(form.minStock);
+
+    if (!form.name.trim()) {
+      setError("Medicine name is required");
+      setTimeout(() => setError(""), 3000);
+      return;
+    }
+    if (!form.category.trim()) {
+      setError("Category is required");
+      setTimeout(() => setError(""), 3000);
+      return;
+    }
+    if (priceValue <= 0) {
+      setError("Selling price must be greater than 0");
+      setTimeout(() => setError(""), 3000);
+      return;
+    }
+    if (purchasePriceValue <= 0) {
+      setError("Purchase price must be greater than 0");
+      setTimeout(() => setError(""), 3000);
+      return;
+    }
+
     try {
       setLoading(true);
       
-      // Prepare data for backend
       const payload = {
-        name: form.name,
-        category: form.category,
-        batch: form.batch,
-        stock: form.stock,
+        name: form.name.trim(),
+        category: form.category.trim(),
+        batch: form.batch || "",
+        stock: stockValue,
         expiry: form.expiry || null,
-        price: form.price,
-        purchasePrice: form.purchasePrice,
-        minStock: form.minStock
+        price: priceValue,
+        purchasePrice: purchasePriceValue,
+        minStock: minStockValue
       };
       
       if (selected && selected.id) {
-        // Update existing medicine
-        await axios.put(`${API_URL}/medicines/${selected.id}`, payload);
+        await api.put(`/medicines/${selected.id}`, payload);
       } else {
-        // Create new medicine
-        await axios.post(`${API_URL}/medicines/`, payload);
+        await api.post("/medicines/", payload);
       }
       
       await fetchMedicines();
@@ -136,7 +181,7 @@ const StockPage = () => {
     
     try {
       setLoading(true);
-      await axios.delete(`${API_URL}/medicines/${id}`);
+      await api.delete(`/medicines/${id}`);
       await fetchMedicines();
       setError("");
     } catch (err: any) {
@@ -343,12 +388,14 @@ const StockPage = () => {
                         <button
                           className="btn btn-xs btn-outline btn-info"
                           onClick={() => handleEdit(item)}
+                          title="Edit Medicine"
                         >
                           Edit
                         </button>
                         <button
                           className="btn btn-xs btn-outline btn-error"
                           onClick={() => handleDelete(item.id)}
+                          title="Delete Medicine"
                         >
                           Delete
                         </button>
@@ -362,7 +409,7 @@ const StockPage = () => {
         </div>
       </div>
 
-      {/* MODAL */}
+      {/* MODAL - Add/Edit Medicine */}
       {open && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
           <div className="bg-base-100 rounded-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
@@ -374,33 +421,31 @@ const StockPage = () => {
               <div className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="label">Medicine Name *</label>
+                    <label className="label font-semibold">Medicine Name <span className="text-error">*</span></label>
                     <input
                       name="name"
                       value={form.name}
                       onChange={handleChange}
                       className="input input-bordered w-full"
                       placeholder="Enter medicine name"
-                      required
                     />
                   </div>
                   
                   <div>
-                    <label className="label">Category *</label>
+                    <label className="label font-semibold">Category <span className="text-error">*</span></label>
                     <input
                       name="category"
                       value={form.category}
                       onChange={handleChange}
                       className="input input-bordered w-full"
                       placeholder="e.g., Pain Relief, Antibiotic"
-                      required
                     />
                   </div>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="label">Batch Number</label>
+                    <label className="label font-semibold">Batch Number</label>
                     <input
                       name="batch"
                       value={form.batch}
@@ -411,7 +456,7 @@ const StockPage = () => {
                   </div>
                   
                   <div>
-                    <label className="label">Expiry Date</label>
+                    <label className="label font-semibold">Expiry Date</label>
                     <input
                       name="expiry"
                       type="date"
@@ -424,25 +469,27 @@ const StockPage = () => {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="label">Stock Quantity *</label>
+                    <label className="label font-semibold">Stock Quantity</label>
                     <input
                       name="stock"
                       type="number"
-                      value={form.stock}
+                      value={form.stock === 0 ? "" : form.stock}
                       onChange={handleChange}
+                      onBlur={() => handleBlur("stock")}
                       className="input input-bordered w-full"
                       placeholder="Current stock"
-                      required
                     />
+                    <p className="text-xs text-base-content/50 mt-1">Leave 0 if no stock</p>
                   </div>
                   
                   <div>
-                    <label className="label">Minimum Stock Alert</label>
+                    <label className="label font-semibold">Minimum Stock Alert</label>
                     <input
                       name="minStock"
                       type="number"
-                      value={form.minStock}
+                      value={form.minStock === 20 ? "" : form.minStock}
                       onChange={handleChange}
+                      onBlur={() => handleBlur("minStock")}
                       className="input input-bordered w-full"
                       placeholder="Alert when stock below"
                     />
@@ -451,28 +498,28 @@ const StockPage = () => {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="label">Selling Price (৳) *</label>
+                    <label className="label font-semibold">Selling Price (৳) <span className="text-error">*</span></label>
                     <input
                       name="price"
                       type="number"
-                      value={form.price}
+                      value={form.price === 0 ? "" : form.price}
                       onChange={handleChange}
+                      onBlur={() => handleBlur("price")}
                       className="input input-bordered w-full"
                       placeholder="Selling price"
-                      required
                     />
                   </div>
                   
                   <div>
-                    <label className="label">Purchase Price (৳) *</label>
+                    <label className="label font-semibold">Purchase Price (৳) <span className="text-error">*</span></label>
                     <input
                       name="purchasePrice"
                       type="number"
-                      value={form.purchasePrice}
+                      value={form.purchasePrice === 0 ? "" : form.purchasePrice}
                       onChange={handleChange}
+                      onBlur={() => handleBlur("purchasePrice")}
                       className="input input-bordered w-full"
                       placeholder="Purchase price"
-                      required
                     />
                   </div>
                 </div>

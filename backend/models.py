@@ -4,6 +4,7 @@ from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from database import Base
 
+
 class User(Base):
     __tablename__ = "users"
 
@@ -14,6 +15,7 @@ class User(Base):
     email = Column(String(100), nullable=True)
     full_name = Column(String(100), nullable=True)
     avatar = Column(String(500), nullable=True)
+    is_active = Column(Boolean, default=True)  # Add this line
     created_at = Column(DateTime, default=func.now())
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
 

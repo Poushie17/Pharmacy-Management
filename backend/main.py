@@ -3,14 +3,13 @@ from fastapi.middleware.cors import CORSMiddleware
 from database import Base, engine
 import models 
 
-from routes import medicines, sales,restock,suppliers,reports,prescription,admin_dashboard,settings
+from routes import medicines, sales, restock, suppliers, reports, prescription, admin_dashboard, settings, auth
 
 app = FastAPI()
 
-# Create database tables
 Base.metadata.create_all(bind=engine)
 
-# Include routers
+app.include_router(auth.router)
 app.include_router(medicines.router)
 app.include_router(sales.router)
 app.include_router(restock.router) 

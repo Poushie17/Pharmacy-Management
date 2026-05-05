@@ -1,9 +1,11 @@
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List
 from database import SessionLocal
 import models
 from datetime import datetime
+from dependencies import get_current_user, require_admin  # Add this
 
 router = APIRouter(prefix="/medicines")
 
@@ -14,8 +16,13 @@ def get_db():
     finally:
         db.close()
 
+
 @router.get("/")
-def get_medicines(db: Session = Depends(get_db)):
+def get_medicines(
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user) 
+):
+    """Get all medicines - Accessible by all logged-in users"""
     meds = db.query(models.Medicine).all()
     return [
         {
@@ -28,15 +35,19 @@ def get_medicines(db: Session = Depends(get_db)):
             "price": m.sell_price,
             "purchasePrice": m.buy_price,
             "minStock": m.min_stock,
-            "created_at": m.created_at.isoformat() if m.created_at else None
         }
         for m in meds
     ]
 
+
 @router.post("/")
-def create_medicine(medicine: dict, db: Session = Depends(get_db)):
+def create_medicine(
+    medicine: dict,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(require_admin)  
+):
+    """Create medicine - Admin only"""
     try:
-        # Handle both old and new field names
         med = models.Medicine(
             name=medicine.get("name"),
             category=medicine.get("category", ""),
@@ -68,13 +79,18 @@ def create_medicine(medicine: dict, db: Session = Depends(get_db)):
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.put("/{id}")
-def update_medicine(id: int, medicine: dict, db: Session = Depends(get_db)):
+def update_medicine(
+    id: int,
+    medicine: dict,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(require_admin) 
+):
+    """Update medicine - Admin only"""
     try:
         med = db.query(models.Medicine).filter(models.Medicine.id == id).first()
         if not med:
             raise HTTPException(status_code=404, detail="Medicine not found")
         
-        # Update fields
         med.name = medicine.get("name", med.name)
         med.category = medicine.get("category", med.category)
         med.batch = medicine.get("batch", med.batch)
@@ -105,8 +121,14 @@ def update_medicine(id: int, medicine: dict, db: Session = Depends(get_db)):
         print(f"Error updating medicine: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+
 @router.delete("/{id}")
-def delete_medicine(id: int, db: Session = Depends(get_db)):
+def delete_medicine(
+    id: int,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(require_admin)  
+):
+    """Delete medicine - Admin only"""
     med = db.query(models.Medicine).filter(models.Medicine.id == id).first()
     if not med:
         raise HTTPException(status_code=404, detail="Medicine not found")

@@ -1,8 +1,10 @@
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from database import SessionLocal
 import models
 from datetime import datetime
+from dependencies import get_current_user  
 
 router = APIRouter(prefix="/sales")
 
@@ -13,9 +15,12 @@ def get_db():
     finally:
         db.close()
 
+
 @router.get("/")
-def get_sales(db: Session = Depends(get_db)):
-    """Get all sales history"""
+def get_sales(
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user) ):
+    """Get all sales history - Accessible by all logged-in users"""
     try:
         sales = db.query(models.Sale).order_by(models.Sale.created_at.desc()).all()
         
@@ -36,8 +41,14 @@ def get_sales(db: Session = Depends(get_db)):
         print(f"Error fetching sales: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+
 @router.post("/")
-def create_sale(payload: dict, db: Session = Depends(get_db)):
+def create_sale(
+    payload: dict,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user)  
+):
+    """Create sale - Accessible by all logged-in users"""
     items = payload.get("items", [])
     
     if not items:
@@ -57,17 +68,14 @@ def create_sale(payload: dict, db: Session = Depends(get_db)):
         if medicine.stock < item["qty"]:
             raise HTTPException(400, f"Not enough stock for {medicine.name}")
         
-        # Update stock
         medicine.stock -= item["qty"]
         
-        # Calculate totals
         item_total = medicine.sell_price * item["qty"]
         item_profit = (medicine.sell_price - medicine.buy_price) * item["qty"]
         
         total += item_total
         total_profit += item_profit
         
-        # Create sale record
         sale = models.Sale(
             medicine_id=medicine.id,
             quantity=item["qty"],
@@ -82,5 +90,6 @@ def create_sale(payload: dict, db: Session = Depends(get_db)):
         "message": "Sale completed successfully",
         "total": total,
         "profit": total_profit,
-        "items_sold": len(items)
+        "items_sold": len(items),
+        "cashier": current_user["username"]  
     }

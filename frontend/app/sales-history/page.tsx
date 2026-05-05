@@ -2,9 +2,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import axios from "axios";
+import api from "../../lib/axios";
 import { PDFDownloadLink } from "@react-pdf/renderer";
-import { SalePDF } from "../../../components/SalePDF";
+import { SalePDF } from "../components/SalePDF";
 import {
   RiEyeLine,
   RiDownloadLine,
@@ -41,7 +41,7 @@ const SalesHistoryPage = () => {
   const fetchSales = async () => {
     try {
       setLoading(true);
-      const response = await axios.get(`${API_URL}/sales/`);
+       const response = await api.get("/sales/");
       setSales(response.data);
       setFilteredSales(response.data);
 

@@ -1,7 +1,9 @@
+// app/layout.tsx
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import Navbar from "./components/layout/Navbar";
+import { AuthProvider } from "../context/AuthContext";
+import ClientLayout from "./ClientLayout";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -24,19 +26,13 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html
-      lang="en"
-      data-theme="dark"
-      className={`${geistSans.variable} ${geistMono.variable} h-full`}
-    >
-      
-      <body className="h-full bg-base-200 text-base-content antialiased">
-
-        {/* ✅ Navbar must be inside body */}
-        <Navbar />
-
-        {children}
-
+    <html lang="en" data-theme="light" className={`${geistSans.variable} ${geistMono.variable}`}>
+      <body className="bg-base-200 text-base-content">
+        <AuthProvider>
+          <ClientLayout>
+            {children}
+          </ClientLayout>
+        </AuthProvider>
       </body>
     </html>
   );
