@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import api from "../../lib/axios";
 
 type StockItem = {
@@ -36,6 +37,7 @@ const isExpiringSoon = (dateStr: string | null) => {
 };
 
 const StockPage = () => {
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [selected, setSelected] = useState<StockItem | null>(null);
   const [form, setForm] = useState<StockItem>(emptyForm);
@@ -48,38 +50,59 @@ const StockPage = () => {
   const [categories, setCategories] = useState<string[]>([]);
   const [userRole, setUserRole] = useState<string>("");
   const [showRoleError, setShowRoleError] = useState(false);
+  const [user, setUser] = useState<any>(null);
+
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    const userStr = localStorage.getItem("user");
+    
+    if (!token || !userStr) {
+      router.push("/login");
+      return;
+    }
+    
+    try {
+      const parsedUser = JSON.parse(userStr);
+      setUser(parsedUser);
+      setUserRole(parsedUser.role);
+    } catch (e) {
+      console.error("Error parsing user:", e);
+      router.push("/login");
+      return;
+    }
+    
+    fetchMedicines();
+  }, [router]);
 
   const fetchMedicines = async () => {
     try {
       setLoading(true);
       const response = await api.get("/medicines/");
-      console.log("Fetched data:", response.data);
-      setStockData(response.data);
-      
-      const uniqueCategories = [...new Set(response.data.map((item: StockItem) => item.category))];
+      // Convert numeric values to numbers
+      const formattedData = response.data.map((item: any) => ({
+        ...item,
+        stock: Number(item.stock) || 0,
+        price: Number(item.price) || Number(item.sell_price) || 0,
+        purchasePrice: Number(item.purchasePrice) || Number(item.buy_price) || 0,
+        minStock: Number(item.minStock) || 20,
+      }));
+      setStockData(formattedData);
+      const uniqueCategories = [...new Set(formattedData.map((item: StockItem) => item.category))];
       setCategories(uniqueCategories);
       setError("");
     } catch (err: any) {
       console.error("Fetch error:", err);
-      setError(err.response?.data?.detail || "Failed to fetch medicines");
+      if (err.response?.status === 401) {
+        localStorage.removeItem("token");
+        localStorage.removeItem("user");
+        router.push("/login");
+      } else {
+        setError(err.response?.data?.detail || "Failed to fetch medicines");
+      }
     } finally {
       setLoading(false);
     }
   };
-
-  useEffect(() => {
-    // Get user role from localStorage
-    const userStr = localStorage.getItem("user");
-    if (userStr) {
-      try {
-        const user = JSON.parse(userStr);
-        setUserRole(user.role);
-      } catch (e) {
-        console.error("Error parsing user:", e);
-      }
-    }
-    fetchMedicines();
-  }, []);
 
   const handleAdd = () => {
     if (userRole !== "admin") {
@@ -248,6 +271,15 @@ const StockPage = () => {
     });
   }, [search, filter, category, stockData]);
 
+  // Calculate total stock value safely
+  const totalStockValue = useMemo(() => {
+    return stockData.reduce((sum, item) => {
+      const price = Number(item.price) || 0;
+      const stock = Number(item.stock) || 0;
+      return sum + (price * stock);
+    }, 0);
+  }, [stockData]);
+
   if (loading && stockData.length === 0) {
     return (
       <div className="min-h-screen bg-base-200 flex items-center justify-center">
@@ -260,9 +292,8 @@ const StockPage = () => {
   }
 
   return (
-    <div className="space-y-4 p-6">
-      {/* HEADER */}
-      <div className="flex justify-between items-center">
+    <div className="space-y-4 p-4 md:p-6 pt-16 md:pt-6">
+      <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4">
         <div>
           <h1 className="text-2xl font-bold text-primary">Stock Management</h1>
           <p className="text-sm text-base-content/70 mt-1">
@@ -270,34 +301,23 @@ const StockPage = () => {
           </p>
           <div className="mt-2">
             <span className={`badge ${userRole === "admin" ? "badge-primary" : "badge-secondary"}`}>
-              {userRole === "admin" ? "Admin Access (Full Control)" : "Cashier Access (View Only)"}
+              {userRole === "admin" ? "Admin Access" : "Cashier Mode (View Only)"}
             </span>
           </div>
         </div>
         {userRole === "admin" && (
-          <button className="btn btn-primary" onClick={handleAdd}>
+          <button className="btn btn-primary w-full md:w-auto" onClick={handleAdd}>
             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
             </svg>
             Add Medicine
           </button>
         )}
-        {userRole === "cashier" && (
-          <div className="tooltip tooltip-left" data-tip="Cashiers can only view stock">
-            <button className="btn btn-disabled" disabled>
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-              </svg>
-              Add Medicine (Disabled)
-            </button>
-          </div>
-        )}
       </div>
 
-      {/* Role Error Alert */}
       {showRoleError && (
         <div className="alert alert-warning shadow-lg">
-          <div>
+          <div className="flex items-center gap-2">
             <svg xmlns="http://www.w3.org/2000/svg" className="stroke-current flex-shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
             </svg>
@@ -306,10 +326,9 @@ const StockPage = () => {
         </div>
       )}
 
-      {/* Error Alert */}
       {error && (
         <div className="alert alert-error shadow-lg">
-          <div>
+          <div className="flex items-center gap-2">
             <svg xmlns="http://www.w3.org/2000/svg" className="stroke-current flex-shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
@@ -318,11 +337,10 @@ const StockPage = () => {
         </div>
       )}
 
-      {/* Filters */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <input
           className="input input-bordered w-full"
-          placeholder="🔍 Search medicine by name, category, or batch..."
+          placeholder="🔍 Search medicine..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
@@ -340,68 +358,66 @@ const StockPage = () => {
 
         <div className="flex gap-2">
           <button
-            className={`btn ${filter === "all" ? "btn-primary" : "btn-outline"} flex-1`}
+            className={`btn flex-1 ${filter === "all" ? "btn-primary" : "btn-outline"}`}
             onClick={() => setFilter("all")}
           >
             All
           </button>
           <button
-            className={`btn ${filter === "low" ? "btn-warning" : "btn-outline"} flex-1`}
+            className={`btn flex-1 ${filter === "low" ? "btn-warning" : "btn-outline"}`}
             onClick={() => setFilter("low")}
           >
-            Low Stock
+            Low
           </button>
           <button
-            className={`btn ${filter === "exp" ? "btn-error" : "btn-outline"} flex-1`}
+            className={`btn flex-1 ${filter === "exp" ? "btn-error" : "btn-outline"}`}
             onClick={() => setFilter("exp")}
           >
-            Expiring Soon
+            Expiring
           </button>
         </div>
       </div>
 
-      {/* Stats Summary */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <div className="stat bg-base-100 rounded-box shadow">
-          <div className="stat-title">Total Items</div>
-          <div className="stat-value text-primary">{stockData.length}</div>
+          <div className="stat-title text-xs">Total Items</div>
+          <div className="stat-value text-primary text-2xl md:text-3xl">{stockData.length}</div>
         </div>
         <div className="stat bg-base-100 rounded-box shadow">
-          <div className="stat-title">Low Stock Items</div>
-          <div className="stat-value text-warning">
+          <div className="stat-title text-xs">Low Stock</div>
+          <div className="stat-value text-warning text-2xl md:text-3xl">
             {stockData.filter(item => item.stock < (item.minStock ?? 20)).length}
           </div>
         </div>
         <div className="stat bg-base-100 rounded-box shadow">
-          <div className="stat-title">Expiring Soon</div>
-          <div className="stat-value text-error">
+          <div className="stat-title text-xs">Expiring Soon</div>
+          <div className="stat-value text-error text-2xl md:text-3xl">
             {stockData.filter(item => isExpiringSoon(item.expiry)).length}
           </div>
         </div>
         <div className="stat bg-base-100 rounded-box shadow">
-          <div className="stat-title">Total Stock Value</div>
-          <div className="stat-value text-accent">
-            ৳{stockData.reduce((sum, item) => sum + (item.price * item.stock), 0)}
+          <div className="stat-title text-xs">Total Value</div>
+          <div className="stat-value text-accent text-xl md:text-3xl truncate">
+            ৳{totalStockValue.toLocaleString()}
           </div>
         </div>
       </div>
 
-      {/* TABLE */}
       <div className="card bg-base-100 shadow-xl border">
         <div className="card-body p-0">
           <div className="overflow-x-auto">
             <table className="table table-zebra w-full">
               <thead className="bg-base-200">
                 <tr>
-                  <th>Name</th>
-                  <th>Category</th>
-                  <th>Batch</th>
-                  <th>Stock</th>
-                  <th>Price (৳)</th>
-                  <th>Purchase Price (৳)</th>
-                  <th>Expiry</th>
-                  <th>Status</th>
-                  <th>Actions</th>
+                  <th className="text-xs md:text-sm">Name</th>
+                  <th className="text-xs md:text-sm hidden sm:table-cell">Category</th>
+                  <th className="text-xs md:text-sm hidden md:table-cell">Batch</th>
+                  <th className="text-xs md:text-sm">Stock</th>
+                  <th className="text-xs md:text-sm hidden sm:table-cell">Price</th>
+                  <th className="text-xs md:text-sm hidden lg:table-cell">Purchase</th>
+                  <th className="text-xs md:text-sm hidden md:table-cell">Expiry</th>
+                  <th className="text-xs md:text-sm hidden lg:table-cell">Status</th>
+                  <th className="text-xs md:text-sm">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -414,56 +430,53 @@ const StockPage = () => {
                 ) : (
                   filteredData.map((item) => (
                     <tr key={item.id}>
-                      <td className="font-semibold">{item.name}</td>
-                      <td>{item.category}</td>
-                      <td>{item.batch || "-"}</td>
-                      <td>
-                        <div className="flex items-center gap-2">
+                      <td className="font-semibold text-sm">{item.name}</td>
+                      <td className="text-sm hidden sm:table-cell">{item.category}</td>
+                      <td className="text-sm hidden md:table-cell">{item.batch || "-"}</td>
+                      <td className="text-sm">
+                        <div className="flex items-center gap-1">
                           {item.stock}
                           {item.stock < (item.minStock ?? 20) && (
-                            <span className="badge badge-warning badge-sm">Low</span>
+                            <span className="badge badge-warning badge-sm hidden md:inline">Low</span>
                           )}
                         </div>
                       </td>
-                      <td className="text-accent font-bold">৳{item.price}</td>
-                      <td className="text-base-content/70">৳{item.purchasePrice}</td>
-                      <td>
+                      <td className="text-accent font-bold text-sm hidden sm:table-cell">৳{Number(item.price).toFixed(2)}</td>
+                      <td className="text-sm hidden lg:table-cell">৳{Number(item.purchasePrice).toFixed(2)}</td>
+                      <td className="text-sm hidden md:table-cell">
                         <span className={isExpiringSoon(item.expiry) ? "text-error font-bold" : ""}>
                           {item.expiry || "N/A"}
-                          {isExpiringSoon(item.expiry) && (
-                            <span className="badge badge-error badge-sm ml-2">Expiring</span>
-                          )}
                         </span>
                       </td>
-                      <td>
+                      <td className="hidden lg:table-cell">
                         {item.stock === 0 ? (
-                          <span className="badge badge-error">Out of Stock</span>
+                          <span className="badge badge-error">Out</span>
                         ) : item.stock < (item.minStock ?? 20) ? (
-                          <span className="badge badge-warning">Low Stock</span>
+                          <span className="badge badge-warning">Low</span>
                         ) : (
-                          <span className="badge badge-success">In Stock</span>
+                          <span className="badge badge-success">Good</span>
                         )}
                       </td>
-                      <td className="flex gap-2">
+                      <td>
                         {userRole === "admin" ? (
-                          <>
+                          <div className="flex gap-1">
                             <button
                               className="btn btn-xs btn-outline btn-info"
                               onClick={() => handleEdit(item)}
-                              title="Edit Medicine"
+                              title="Edit"
                             >
                               Edit
                             </button>
                             <button
                               className="btn btn-xs btn-outline btn-error"
                               onClick={() => handleDelete(item.id)}
-                              title="Delete Medicine"
+                              title="Delete"
                             >
-                              Delete
+                              Del
                             </button>
-                          </>
+                          </div>
                         ) : (
-                          <span className="text-xs text-base-content/50 italic">View Only</span>
+                          <span className="text-xs text-base-content/50 italic">View</span>
                         )}
                       </td>
                     </tr>
@@ -475,12 +488,11 @@ const StockPage = () => {
         </div>
       </div>
 
-      {/* MODAL - Add/Edit Medicine (Only shown for Admin) */}
       {open && userRole === "admin" && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
           <div className="bg-base-100 rounded-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
             <div className="p-6">
-              <h2 className="text-2xl font-bold mb-6">
+              <h2 className="text-xl md:text-2xl font-bold mb-6">
                 {selected ? "Edit Medicine" : "Add New Medicine"}
               </h2>
               
@@ -496,7 +508,6 @@ const StockPage = () => {
                       placeholder="Enter medicine name"
                     />
                   </div>
-                  
                   <div>
                     <label className="label font-semibold">Category <span className="text-error">*</span></label>
                     <input
@@ -504,7 +515,7 @@ const StockPage = () => {
                       value={form.category}
                       onChange={handleChange}
                       className="input input-bordered w-full"
-                      placeholder="e.g., Pain Relief, Antibiotic"
+                      placeholder="e.g., Pain Relief"
                     />
                   </div>
                 </div>
@@ -520,7 +531,6 @@ const StockPage = () => {
                       placeholder="Batch number"
                     />
                   </div>
-                  
                   <div>
                     <label className="label font-semibold">Expiry Date</label>
                     <input
@@ -545,11 +555,9 @@ const StockPage = () => {
                       className="input input-bordered w-full"
                       placeholder="Current stock"
                     />
-                    <p className="text-xs text-base-content/50 mt-1">Leave 0 if no stock</p>
                   </div>
-                  
                   <div>
-                    <label className="label font-semibold">Minimum Stock Alert</label>
+                    <label className="label font-semibold">Min Stock Alert</label>
                     <input
                       name="minStock"
                       type="number"
@@ -557,7 +565,7 @@ const StockPage = () => {
                       onChange={handleChange}
                       onBlur={() => handleBlur("minStock")}
                       className="input input-bordered w-full"
-                      placeholder="Alert when stock below"
+                      placeholder="Alert at"
                     />
                   </div>
                 </div>
@@ -575,7 +583,6 @@ const StockPage = () => {
                       placeholder="Selling price"
                     />
                   </div>
-                  
                   <div>
                     <label className="label font-semibold">Purchase Price (৳) <span className="text-error">*</span></label>
                     <input
@@ -597,11 +604,7 @@ const StockPage = () => {
                   onClick={handleSave}
                   disabled={loading}
                 >
-                  {loading ? (
-                    <span className="loading loading-spinner"></span>
-                  ) : (
-                    "Save Medicine"
-                  )}
+                  {loading ? <span className="loading loading-spinner"></span> : "Save Medicine"}
                 </button>
                 <button
                   className="btn btn-outline flex-1"

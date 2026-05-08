@@ -2,7 +2,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import axios from "axios";
+import { useRouter } from "next/navigation";
+import api from "../../lib/axios";
 import {
   RiErrorWarningLine,
   RiCheckboxCircleLine,
@@ -12,6 +13,8 @@ import {
   RiCheckLine,
   RiDeleteBinLine,
   RiEyeLine,
+  RiAdminLine,
+  RiUserStarLine,
 } from "react-icons/ri";
 
 type LowStockItem = {
@@ -37,25 +40,47 @@ const emptyForm = {
 };
 
 const RestockPage = () => {
+  const router = useRouter();
   const [orders, setOrders] = useState<RestockOrder[]>([]);
   const [lowStockData, setLowStockData] = useState<LowStockItem[]>([]);
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState(emptyForm);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [userRole, setUserRole] = useState<string>("");
+  const [user, setUser] = useState<any>(null);
   const [stats, setStats] = useState({
     totalLowStock: 0,
     pendingOrders: 0,
     totalOrders: 0
   });
 
-  const API_URL = "http://localhost:8000";
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    const userStr = localStorage.getItem("user");
+    
+    if (!token || !userStr) {
+      router.push("/login");
+      return;
+    }
+    
+    try {
+      const parsedUser = JSON.parse(userStr);
+      setUser(parsedUser);
+      setUserRole(parsedUser.role);
+    } catch (e) {
+      console.error("Error parsing user:", e);
+      router.push("/login");
+      return;
+    }
+    
+    fetchData();
+  }, [router]);
 
-  // Fetch data from backend
   const fetchData = async () => {
     try {
       setLoading(true);
-      const response = await axios.get(`${API_URL}/restock/`);
+      const response = await api.get("/restock/");
       setLowStockData(response.data.lowStock);
       setOrders(response.data.orders);
       setStats({
@@ -66,17 +91,24 @@ const RestockPage = () => {
       setError("");
     } catch (err: any) {
       console.error("Fetch error:", err);
-      setError(err.response?.data?.detail || "Failed to fetch data");
+      if (err.response?.status === 401) {
+        localStorage.removeItem("token");
+        localStorage.removeItem("user");
+        router.push("/login");
+      } else {
+        setError(err.response?.data?.detail || "Failed to fetch data");
+      }
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => {
-    fetchData();
-  }, []);
-
   const handleCreate = () => {
+    if (userRole !== "admin") {
+      setError("Only admin can create restock orders");
+      setTimeout(() => setError(""), 3000);
+      return;
+    }
     setForm(emptyForm);
     setOpen(true);
   };
@@ -86,9 +118,15 @@ const RestockPage = () => {
   };
 
   const handleSave = async () => {
+    if (userRole !== "admin") {
+      setError("Only admin can create restock orders");
+      setTimeout(() => setError(""), 3000);
+      return;
+    }
+
     try {
       setLoading(true);
-      await axios.post(`${API_URL}/restock/orders`, form);
+      await api.post("/restock/orders", form);
       await fetchData();
       setOpen(false);
       setError("");
@@ -101,11 +139,17 @@ const RestockPage = () => {
   };
 
   const handleReceiveOrder = async (orderId: number) => {
+    if (userRole !== "admin") {
+      setError("Only admin can receive orders");
+      setTimeout(() => setError(""), 3000);
+      return;
+    }
+
     if (!confirm("Mark this order as received? Stock will be updated automatically.")) return;
     
     try {
       setLoading(true);
-      await axios.put(`${API_URL}/restock/orders/${orderId}/receive`);
+      await api.put(`/restock/orders/${orderId}/receive`);
       await fetchData();
       setError("");
     } catch (err: any) {
@@ -117,11 +161,17 @@ const RestockPage = () => {
   };
 
   const handleDeleteOrder = async (orderId: number) => {
+    if (userRole !== "admin") {
+      setError("Only admin can delete orders");
+      setTimeout(() => setError(""), 3000);
+      return;
+    }
+
     if (!confirm("Delete this restock order?")) return;
     
     try {
       setLoading(true);
-      await axios.delete(`${API_URL}/restock/orders/${orderId}`);
+      await api.delete(`/restock/orders/${orderId}`);
       await fetchData();
       setError("");
     } catch (err: any) {
@@ -130,6 +180,12 @@ const RestockPage = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
+    router.push("/login");
   };
 
   if (loading && orders.length === 0 && lowStockData.length === 0) {
@@ -143,15 +199,30 @@ const RestockPage = () => {
     );
   }
 
+  const isAdmin = userRole === "admin";
+
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-6 p-4 md:p-6 pt-16 md:pt-6">
       {/* Header */}
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4">
         <div>
           <h1 className="text-2xl font-bold text-primary">Restocking Management</h1>
           <p className="text-sm text-base-content/70 mt-1">
             Manage low stock items and create restock orders
           </p>
+          <div className="mt-2 flex items-center gap-2">
+            {isAdmin ? (
+              <>
+                <RiAdminLine className="text-primary" />
+                <span className="badge badge-primary badge-sm">Admin Access (Full Control)</span>
+              </>
+            ) : (
+              <>
+                <RiUserStarLine className="text-secondary" />
+                <span className="badge badge-secondary badge-sm">Cashier Mode (View Only)</span>
+              </>
+            )}
+          </div>
         </div>
         <div className="flex gap-2">
           <button
@@ -162,21 +233,28 @@ const RestockPage = () => {
             <RiRefreshLine className="mr-2" />
             Refresh
           </button>
-          <button
-            className="btn btn-primary btn-sm"
-            onClick={handleCreate}
-            disabled={loading || lowStockData.length === 0}
-          >
-            <RiAddLine className="mr-2" />
-            Create Restock Order
-          </button>
+          {isAdmin ? (
+            <button
+              className="btn btn-primary btn-sm"
+              onClick={handleCreate}
+              disabled={loading || lowStockData.length === 0}
+            >
+              <RiAddLine className="mr-2" />
+              Create Restock Order
+            </button>
+          ) : (
+            <button className="btn btn-disabled btn-sm" disabled>
+              <RiAddLine className="mr-2" />
+              Create Order (Disabled)
+            </button>
+          )}
         </div>
       </div>
 
       {/* Error Alert */}
       {error && (
         <div className="alert alert-error shadow-lg">
-          <div>
+          <div className="flex items-center gap-2">
             <svg xmlns="http://www.w3.org/2000/svg" className="stroke-current flex-shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
@@ -188,25 +266,25 @@ const RestockPage = () => {
       {/* Statistics Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="card bg-warning text-warning-content shadow-xl">
-          <div className="card-body">
+          <div className="card-body p-4">
             <h2 className="text-sm opacity-90">Low Stock Items</h2>
-            <p className="text-3xl font-bold">{stats.totalLowStock}</p>
+            <p className="text-2xl md:text-3xl font-bold">{stats.totalLowStock}</p>
             <div className="text-xs opacity-70">Need immediate restock</div>
           </div>
         </div>
 
         <div className="card bg-info text-info-content shadow-xl">
-          <div className="card-body">
+          <div className="card-body p-4">
             <h2 className="text-sm opacity-90">Pending Orders</h2>
-            <p className="text-3xl font-bold">{stats.pendingOrders}</p>
+            <p className="text-2xl md:text-3xl font-bold">{stats.pendingOrders}</p>
             <div className="text-xs opacity-70">Awaiting delivery</div>
           </div>
         </div>
 
         <div className="card bg-primary text-primary-content shadow-xl">
-          <div className="card-body">
+          <div className="card-body p-4">
             <h2 className="text-sm opacity-90">Total Orders</h2>
-            <p className="text-3xl font-bold">{stats.totalOrders}</p>
+            <p className="text-2xl md:text-3xl font-bold">{stats.totalOrders}</p>
             <div className="text-xs opacity-70">All time orders</div>
           </div>
         </div>
@@ -214,7 +292,7 @@ const RestockPage = () => {
 
       {/* LOW STOCK SECTION */}
       <div className="card bg-base-100 shadow-xl border">
-        <div className="card-body">
+        <div className="card-body p-4 md:p-6">
           <h2 className="font-semibold text-lg flex items-center gap-2">
             <RiErrorWarningLine className="text-warning" />
             Low Stock Items ({lowStockData.length})
@@ -226,33 +304,31 @@ const RestockPage = () => {
               <span className="text-success">All medicines have sufficient stock</span>
             </div>
           ) : (
-            <div className="mt-2 space-y-2">
-              <div className="overflow-x-auto">
-                <table className="table table-sm">
-                  <thead>
-                    <tr>
-                      <th>Medicine Name</th>
-                      <th>Category</th>
-                      <th>Current Stock</th>
-                      <th>Min Stock</th>
-                      <th>Status</th>
+            <div className="mt-2 overflow-x-auto">
+              <table className="table table-sm w-full">
+                <thead>
+                  <tr>
+                    <th>Medicine Name</th>
+                    <th className="hidden sm:table-cell">Category</th>
+                    <th>Current Stock</th>
+                    <th>Min Stock</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {lowStockData.map((item) => (
+                    <tr key={item.id}>
+                      <td className="font-medium text-sm">{item.name}</td>
+                      <td className="text-sm hidden sm:table-cell">{item.category}</td>
+                      <td className="text-warning font-bold text-sm">{item.stock}</td>
+                      <td className="text-sm">{item.minStock}</td>
+                      <td>
+                        <span className="badge badge-warning badge-sm">Critical</span>
+                      </td>
                     </tr>
-                  </thead>
-                  <tbody>
-                    {lowStockData.map((item) => (
-                      <tr key={item.id}>
-                        <td className="font-medium">{item.name}</td>
-                        <td>{item.category}</td>
-                        <td className="text-warning font-bold">{item.stock}</td>
-                        <td>{item.minStock}</td>
-                        <td>
-                          <span className="badge badge-warning badge-sm">Critical</span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                  ))}
+                </tbody>
+              </table>
             </div>
           )}
         </div>
@@ -260,7 +336,7 @@ const RestockPage = () => {
 
       {/* RESTOCK ORDERS SECTION */}
       <div className="card bg-base-100 shadow-xl border">
-        <div className="card-body">
+        <div className="card-body p-4 md:p-6">
           <h2 className="font-semibold text-lg flex items-center gap-2">
             <RiTruckLine className="text-primary" />
             Restock Orders ({orders.length})
@@ -268,24 +344,20 @@ const RestockPage = () => {
 
           {orders.length === 0 ? (
             <p className="text-sm opacity-70 mt-2 p-4 text-center">
-              No restock orders yet. Create your first order above.
+              No restock orders yet.
             </p>
           ) : (
             <div className="mt-2 space-y-3">
               {orders.map((order) => (
                 <div
                   key={order.id}
-                  className="border rounded-lg p-4 hover:shadow-md transition-shadow"
+                  className="border rounded-lg p-3 md:p-4 hover:shadow-md transition-shadow"
                 >
-                  <div className="flex justify-between items-start">
+                  <div className="flex flex-col md:flex-row md:justify-between md:items-start gap-3">
                     <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-2">
-                        <p className="font-bold text-lg">{order.supplier}</p>
-                        <span className={`badge ${
-                          order.status === "received" 
-                            ? "badge-success" 
-                            : "badge-warning"
-                        }`}>
+                      <div className="flex flex-wrap items-center gap-2 mb-2">
+                        <p className="font-bold text-base md:text-lg">{order.supplier}</p>
+                        <span className={`badge ${order.status === "received" ? "badge-success" : "badge-warning"}`}>
                           {order.status === "received" ? "✓ Received" : "Pending"}
                         </span>
                       </div>
@@ -303,23 +375,29 @@ const RestockPage = () => {
                     </div>
                     
                     <div className="flex gap-2">
-                      {order.status === "pending" && (
-                        <button
-                          className="btn btn-xs btn-success"
-                          onClick={() => handleReceiveOrder(order.id)}
-                          title="Mark as Received"
-                        >
-                          <RiCheckLine className="mr-1" />
-                          Receive
-                        </button>
+                      {isAdmin ? (
+                        <>
+                          {order.status === "pending" && (
+                            <button
+                              className="btn btn-xs btn-success"
+                              onClick={() => handleReceiveOrder(order.id)}
+                              title="Mark as Received"
+                            >
+                              <RiCheckLine className="mr-1" />
+                              Receive
+                            </button>
+                          )}
+                          <button
+                            className="btn btn-xs btn-error"
+                            onClick={() => handleDeleteOrder(order.id)}
+                            title="Delete Order"
+                          >
+                            <RiDeleteBinLine />
+                          </button>
+                        </>
+                      ) : (
+                        <span className="text-xs text-base-content/50 italic">View Only</span>
                       )}
-                      <button
-                        className="btn btn-xs btn-error"
-                        onClick={() => handleDeleteOrder(order.id)}
-                        title="Delete Order"
-                      >
-                        <RiDeleteBinLine />
-                      </button>
                     </div>
                   </div>
                 </div>
@@ -329,8 +407,8 @@ const RestockPage = () => {
         </div>
       </div>
 
-      {/* CREATE ORDER MODAL */}
-      {open && (
+      {/* CREATE ORDER MODAL - Only for Admin */}
+      {open && isAdmin && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
           <div className="bg-base-100 rounded-xl w-full max-w-md">
             <div className="p-6">

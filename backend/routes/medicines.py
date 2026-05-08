@@ -1,11 +1,10 @@
-
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List
 from database import SessionLocal
 import models
 from datetime import datetime
-from dependencies import get_current_user, require_admin  # Add this
+from dependencies import get_current_user, require_admin
 
 router = APIRouter(prefix="/medicines")
 
@@ -30,10 +29,10 @@ def get_medicines(
             "name": m.name,
             "category": m.category,
             "batch": m.batch if m.batch else "",
-            "stock": m.stock,
+            "stock": m.stock,  # This is already an Integer
             "expiry": m.expiry.isoformat() if m.expiry else None,
-            "price": m.sell_price,
-            "purchasePrice": m.buy_price,
+            "sell_price": float(m.sell_price) if m.sell_price else 0.0,  # Ensure float
+            "buy_price": float(m.buy_price) if m.buy_price else 0.0,     # Ensure float
             "minStock": m.min_stock,
         }
         for m in meds
@@ -52,11 +51,11 @@ def create_medicine(
             name=medicine.get("name"),
             category=medicine.get("category", ""),
             batch=medicine.get("batch", ""),
-            stock=medicine.get("stock", 0),
+            stock=int(medicine.get("stock", 0)),
             expiry=datetime.strptime(medicine.get("expiry"), "%Y-%m-%d").date() if medicine.get("expiry") and medicine.get("expiry") != "" else None,
-            sell_price=medicine.get("price") or medicine.get("sell_price", 0),
-            buy_price=medicine.get("purchasePrice") or medicine.get("buy_price", 0),
-            min_stock=medicine.get("minStock", 20)
+            sell_price=float(medicine.get("price", 0) or medicine.get("sell_price", 0)),
+            buy_price=float(medicine.get("purchasePrice", 0) or medicine.get("buy_price", 0)),
+            min_stock=int(medicine.get("minStock", 20))
         )
         db.add(med)
         db.commit()
@@ -69,14 +68,15 @@ def create_medicine(
             "batch": med.batch,
             "stock": med.stock,
             "expiry": med.expiry.isoformat() if med.expiry else None,
-            "price": med.sell_price,
-            "purchasePrice": med.buy_price,
+            "sell_price": float(med.sell_price),
+            "buy_price": float(med.buy_price),
             "minStock": med.min_stock
         }
     except Exception as e:
         db.rollback()
         print(f"Error creating medicine: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
 
 @router.put("/{id}")
 def update_medicine(
@@ -94,10 +94,10 @@ def update_medicine(
         med.name = medicine.get("name", med.name)
         med.category = medicine.get("category", med.category)
         med.batch = medicine.get("batch", med.batch)
-        med.stock = medicine.get("stock", med.stock)
-        med.sell_price = medicine.get("price") or medicine.get("sell_price", med.sell_price)
-        med.buy_price = medicine.get("purchasePrice") or medicine.get("buy_price", med.buy_price)
-        med.min_stock = medicine.get("minStock", med.min_stock)
+        med.stock = int(medicine.get("stock", med.stock))
+        med.sell_price = float(medicine.get("price", med.sell_price) or medicine.get("sell_price", med.sell_price))
+        med.buy_price = float(medicine.get("purchasePrice", med.buy_price) or medicine.get("buy_price", med.buy_price))
+        med.min_stock = int(medicine.get("minStock", med.min_stock))
         
         if medicine.get("expiry"):
             med.expiry = datetime.strptime(medicine.get("expiry"), "%Y-%m-%d").date()
@@ -112,8 +112,8 @@ def update_medicine(
             "batch": med.batch,
             "stock": med.stock,
             "expiry": med.expiry.isoformat() if med.expiry else None,
-            "price": med.sell_price,
-            "purchasePrice": med.buy_price,
+            "sell_price": float(med.sell_price),
+            "buy_price": float(med.buy_price),
             "minStock": med.min_stock
         }
     except Exception as e:
