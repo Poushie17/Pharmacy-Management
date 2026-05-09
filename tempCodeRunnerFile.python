@@ -1,0 +1,65 @@
+from string import ascii_uppercase
+
+titles = [
+"Falling in Love with Close Reading: Lessons for Analyzing Texts--and Life",
+"A Dog's Way Home",
+"My Familiar Stranger (Knights of Black Swan, #1)",
+"Memoirs of a Hamster",
+"Max and the Tag-Along Moon",
+"Spike: Ugliest Dog in the Universe",
+"Crankenstein",
+"The Dogs of Winter",
+"The Fences Between Us: The Diary of Piper Davis, Seattle, Washington, 1941 (Dear America)",
+"Black and Blue (Otherworld Assassin, #2)",
+"Destiny's Mark (The Guardians of Eden, #3)",
+"Warrior Reborn (The Guardians of Eden, #2)",
+"Betrayal's Shadow (The Guardians of Eden, #1)",
+"The Mouse with the Question Mark Tail",
+"The Year of Billy Miller",
+"Kade's Dark Embrace (Immortals of New Orleans, #1)",
+"Darkness Seduced (Order of the Blade #2)",
+"Darkness Awakened (Order of the Blade #1)",
+"The Real Boy",
+"Blood and Sand (Elemental World #2)",
+"Building From Ashes (Elemental World #1)",
+"Paperboy",
+"Frogs",
+"The Red Lemon (Deluxe Golden Book)",
+"Tea Party Rules",
+"A Fall of Water (Elemental Mysteries, #4)",
+"Matilda",
+"The Force of Wind (Elemental Mysteries, #3)",
+"This Same Earth (Elemental Mysteries, #2)",
+"A Hidden Fire (Elemental Mysteries, #1)",
+"Counting by 7s",
+"Under The Alpha's Protection",
+"Darkness Rises (Immortal Guardians, #4)"
+]
+
+def clean(s):
+    return "".join([c for c in s.upper() if c.isalpha()])
+
+def vigenere(text, key):
+    res = []
+    key = key
+    ki = 0
+    for c in text:
+        if c in ascii_uppercase:
+            t = ord(c) - 65
+            k = ord(key[ki % len(key)]) - 65
+            res.append(chr((t + k) % 26 + 65))
+            ki += 1
+        else:
+            res.append(c)
+    return "".join(res)
+
+outputs = []
+for t in titles:
+    ct = clean(t)
+    if not ct:
+        outputs.append("")
+        continue
+    key = ct
+    outputs.append(vigenere(ct, key))
+
+outputs
