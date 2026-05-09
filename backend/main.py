@@ -19,9 +19,14 @@ app.include_router(prescription.router)
 app.include_router(admin_dashboard.router)
 app.include_router(settings.router)
 
+# Update CORS to include your Vercel frontend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],  
+    allow_origins=[
+        "http://localhost:3000",
+        "https://pharmacy-management-navy.vercel.app",  
+        "https://pharmacy-management-1-ul81.onrender.com", 
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
