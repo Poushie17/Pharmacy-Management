@@ -35,7 +35,6 @@ export default function POSPage() {
   const [checkingAuth, setCheckingAuth] = useState(true);
 
   useEffect(() => {
-    // Check authentication from localStorage
     const token = localStorage.getItem('token');
     const userStr = localStorage.getItem('user');
     
@@ -63,9 +62,14 @@ export default function POSPage() {
       setLoading(true);
       console.log("Fetching medicines...");
       const response = await api.get('/medicines/');
-      console.log("Medicines fetched:", response.data.length);
-      setMedicines(response.data);
-      const uniqueCategories = [...new Set(response.data.map((med: Medicine) => med.category))];
+      const medicinesData = response.data as Medicine[];
+      console.log("Medicines fetched:", medicinesData.length);
+      setMedicines(medicinesData);
+      
+      // Fixed: Explicitly type the map result
+      const uniqueCategories: string[] = [...new Set(
+        medicinesData.map((med: Medicine) => String(med.category))
+      )];
       setCategories(uniqueCategories);
       setError('');
     } catch (err: any) {
@@ -187,7 +191,6 @@ export default function POSPage() {
 
   const cartTotal = cart.reduce((sum, item) => sum + item.total, 0);
 
-  // Show loading while checking auth
   if (checkingAuth) {
     return (
       <div className="min-h-screen bg-base-200 flex items-center justify-center">

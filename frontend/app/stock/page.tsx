@@ -79,15 +79,23 @@ const StockPage = () => {
       setLoading(true);
       const response = await api.get("/medicines/");
       // Convert numeric values to numbers
-      const formattedData = response.data.map((item: any) => ({
-        ...item,
+      const formattedData: StockItem[] = response.data.map((item: any) => ({
+        id: Number(item.id) || 0,
+        name: String(item.name) || "",
+        category: String(item.category) || "",
+        batch: String(item.batch) || "",
         stock: Number(item.stock) || 0,
+        expiry: item.expiry || null,
         price: Number(item.price) || Number(item.sell_price) || 0,
         purchasePrice: Number(item.purchasePrice) || Number(item.buy_price) || 0,
         minStock: Number(item.minStock) || 20,
       }));
       setStockData(formattedData);
-      const uniqueCategories = [...new Set(formattedData.map((item: StockItem) => item.category))];
+      
+      // Fixed: Explicitly type the categories as string[]
+      const uniqueCategories: string[] = [...new Set(
+        formattedData.map((item: StockItem) => String(item.category))
+      )];
       setCategories(uniqueCategories);
       setError("");
     } catch (err: any) {
@@ -161,68 +169,75 @@ const StockPage = () => {
   };
 
   const handleSave = async () => {
-    if (userRole !== "admin") {
-      setShowRoleError(true);
-      setTimeout(() => setShowRoleError(false), 3000);
-      return;
-    }
+  if (userRole !== "admin") {
+    setShowRoleError(true);
+    setTimeout(() => setShowRoleError(false), 3000);
+    return;
+  }
 
-    const stockValue = form.stock === "" ? 0 : Number(form.stock);
-    const priceValue = form.price === "" ? 0 : Number(form.price);
-    const purchasePriceValue = form.purchasePrice === "" ? 0 : Number(form.purchasePrice);
-    const minStockValue = form.minStock === "" ? 20 : Number(form.minStock);
+  // Safely convert values, handling both number and empty string
+  const stockValue = typeof form.stock === "number" ? form.stock : (form.stock === "" ? 0 : Number(form.stock));
+  const priceValue = typeof form.price === "number" ? form.price : (form.price === "" ? 0 : Number(form.price));
+  const purchasePriceValue = typeof form.purchasePrice === "number" ? form.purchasePrice : (form.purchasePrice === "" ? 0 : Number(form.purchasePrice));
+  let minStockValue = 20;
+  
+  if (typeof form.minStock === "number") {
+    minStockValue = form.minStock;
+  } else if (form.minStock !== "" && form.minStock !== null) {
+    minStockValue = Number(form.minStock);
+  }
 
-    if (!form.name.trim()) {
-      setError("Medicine name is required");
-      setTimeout(() => setError(""), 3000);
-      return;
-    }
-    if (!form.category.trim()) {
-      setError("Category is required");
-      setTimeout(() => setError(""), 3000);
-      return;
-    }
-    if (priceValue <= 0) {
-      setError("Selling price must be greater than 0");
-      setTimeout(() => setError(""), 3000);
-      return;
-    }
-    if (purchasePriceValue <= 0) {
-      setError("Purchase price must be greater than 0");
-      setTimeout(() => setError(""), 3000);
-      return;
-    }
+  if (!form.name.trim()) {
+    setError("Medicine name is required");
+    setTimeout(() => setError(""), 3000);
+    return;
+  }
+  if (!form.category.trim()) {
+    setError("Category is required");
+    setTimeout(() => setError(""), 3000);
+    return;
+  }
+  if (priceValue <= 0) {
+    setError("Selling price must be greater than 0");
+    setTimeout(() => setError(""), 3000);
+    return;
+  }
+  if (purchasePriceValue <= 0) {
+    setError("Purchase price must be greater than 0");
+    setTimeout(() => setError(""), 3000);
+    return;
+  }
 
-    try {
-      setLoading(true);
-      
-      const payload = {
-        name: form.name.trim(),
-        category: form.category.trim(),
-        batch: form.batch || "",
-        stock: stockValue,
-        expiry: form.expiry || null,
-        price: priceValue,
-        purchasePrice: purchasePriceValue,
-        minStock: minStockValue
-      };
-      
-      if (selected && selected.id) {
-        await api.put(`/medicines/${selected.id}`, payload);
-      } else {
-        await api.post("/medicines/", payload);
-      }
-      
-      await fetchMedicines();
-      setOpen(false);
-      setError("");
-    } catch (err: any) {
-      console.error("Save error:", err);
-      setError(err.response?.data?.detail || "Failed to save medicine");
-    } finally {
-      setLoading(false);
+  try {
+    setLoading(true);
+    
+    const payload = {
+      name: form.name.trim(),
+      category: form.category.trim(),
+      batch: form.batch || "",
+      stock: stockValue,
+      expiry: form.expiry || null,
+      price: priceValue,
+      purchasePrice: purchasePriceValue,
+      minStock: minStockValue
+    };
+    
+    if (selected && selected.id) {
+      await api.put(`/medicines/${selected.id}`, payload);
+    } else {
+      await api.post("/medicines/", payload);
     }
-  };
+    
+    await fetchMedicines();
+    setOpen(false);
+    setError("");
+  } catch (err: any) {
+    console.error("Save error:", err);
+    setError(err.response?.data?.detail || "Failed to save medicine");
+  } finally {
+    setLoading(false);
+  }
+};
 
   const handleDelete = async (id: number) => {
     if (userRole !== "admin") {
@@ -271,7 +286,6 @@ const StockPage = () => {
     });
   }, [search, filter, category, stockData]);
 
-  // Calculate total stock value safely
   const totalStockValue = useMemo(() => {
     return stockData.reduce((sum, item) => {
       const price = Number(item.price) || 0;
