@@ -1,4 +1,3 @@
-
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from database import SessionLocal
@@ -45,3 +44,45 @@ def logout(token: str):
     if token in tokens:
         del tokens[token]
     return {"success": True}
+
+# ADD THIS SETUP ENDPOINT
+@router.get("/setup")
+def setup_default_users(db: Session = Depends(get_db)):
+    """Create default admin and cashier users (Run once)"""
+    # Create admin user if not exists
+    admin = db.query(models.User).filter(models.User.username == "admin").first()
+    if not admin:
+        admin = models.User(
+            username="admin",
+            password="admin123",
+            role="admin",
+            email="admin@pharmacplus.com",
+            full_name="Administrator",
+            is_active=True
+        )
+        db.add(admin)
+        print("Admin user created")
+    
+    # Create cashier user if not exists
+    cashier = db.query(models.User).filter(models.User.username == "cashier").first()
+    if not cashier:
+        cashier = models.User(
+            username="cashier",
+            password="cashier123",
+            role="cashier",
+            email="cashier@pharmacplus.com",
+            full_name="Cashier User",
+            is_active=True
+        )
+        db.add(cashier)
+        print("Cashier user created")
+    
+    db.commit()
+    
+    return {
+        "message": "Setup completed successfully",
+        "users": [
+            {"username": "admin", "password": "admin123", "role": "admin"},
+            {"username": "cashier", "password": "cashier123", "role": "cashier"}
+        ]
+    }
